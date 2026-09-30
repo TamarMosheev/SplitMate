@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.widget.Toast
@@ -33,6 +34,11 @@ class MainActivity : AppCompatActivity() {
             val password = binding.etPassword.text?.toString().orEmpty()
             viewModel.login(email, password)
         }
+
+        // UI callbacks only - backend not wired yet
+        binding.tvForgotPassword.setOnClickListener { /* TODO: password reset */ }
+        binding.btnGoogle.setOnClickListener { /* TODO: Google sign-in */ }
+        binding.tvRegister.setOnClickListener { /* TODO: navigate to registration */ }
     }
 
     private fun observeViewModel() {
@@ -60,6 +66,8 @@ class MainActivity : AppCompatActivity() {
                                     "ברוך הבא, ${state.data.email}!",
                                     Toast.LENGTH_LONG
                                 ).show()
+                                startActivity(Intent(this@MainActivity, HomeActivity::class.java))
+                                finish()
                             }
                             is Resource.Error -> {
                                 binding.progressBar.visibility = View.GONE

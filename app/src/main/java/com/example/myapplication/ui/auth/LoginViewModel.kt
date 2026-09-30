@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.auth
 
+import android.util.Patterns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myapplication.data.model.User
@@ -42,6 +43,49 @@ class LoginViewModel(
             val result = authRepository.loginWithEmail(email, password)
             _loginState.value = result
         }
+    }
+
+    fun loginWithGoogle(idToken: String) {
+        if (_loginState.value is Resource.Loading) return
+
+        _formErrors.value = LoginFormErrors()
+        _loginState.value = Resource.Loading
+
+        viewModelScope.launch {
+            _loginState.value = authRepository.loginWithGoogle(idToken)
+        }
+    }
+
+    fun onGoogleSignInFailed(message: String) {
+        _loginState.value = Resource.Error(message)
+    }
+
+    private val _resetEmailError = MutableStateFlow<String?>(null)
+    val resetEmailError: StateFlow<String?> = _resetEmailError.asStateFlow()
+
+    private val _passwordResetState = MutableStateFlow<Resource<Unit>?>(null)
+    val passwordResetState: StateFlow<Resource<Unit>?> = _passwordResetState.asStateFlow()
+
+    fun sendPasswordReset(email: String) {
+        if (_passwordResetState.value is Resource.Loading) return
+
+        val trimmed = email.trim()
+        val error = when {
+            trimmed.isEmpty() -> "יש להזין כתובת אימייל"
+            !Patterns.EMAIL_ADDRESS.matcher(trimmed).matches() -> "כתובת האימייל אינה תקינה"
+            else -> null
+        }
+        _resetEmailError.value = error
+        if (error != null) return
+
+        _passwordResetState.value = Resource.Loading
+        viewModelScope.launch {
+            _passwordResetState.value = authRepository.resetPassword(trimmed)
+        }
+    }
+
+    fun clearPasswordResetState() {
+        _passwordResetState.value = null
     }
 
     fun resetState() {

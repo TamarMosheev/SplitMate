@@ -2,13 +2,13 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-    <color name="login_primary">#FF10BFB3</color>
-    <color name="login_background">#FFF8FAFC</color>
+    <color name="login_primary">#FF1E6FD9</color>
+    <color name="login_background">#FFF3F8FF</color>
     <color name="login_field_fill">#FFFFFFFF</color>
-    <color name="login_stroke">#FFD3DCE6</color>
-    <color name="login_title">#FF12285A</color>
-    <color name="login_text">#FF1F2D4A</color>
-    <color name="login_text_muted">#FF6B7C93</color>
+    <color name="login_stroke">#FFC7D8EF</color>
+    <color name="login_title">#FF0D2A4F</color>
+    <color name="login_text">#FF0D2A4F</color>
+    <color name="login_text_muted">#FF5A7396</color>
     <color name="home_bg">#FFF3F8FF</color>
     <color name="home_navy">#FF0D2A4F</color>
     <color name="home_muted">#FF5A7396</color>
@@ -20,4 +20,5 @@
     <color name="home_negative">#FFD6303F</color>
     <color name="home_negative_bg">#FFFDE4E6</color>
     <color name="home_shadow">#590B3D91</color>
+    <color name="login_deep">#FF0B3D91</color>
 </resources>

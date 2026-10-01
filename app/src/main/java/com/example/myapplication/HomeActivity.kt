@@ -17,6 +17,8 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityHomeBinding
+import com.example.myapplication.ui.expense.AddExpenseViewModel
+import com.example.myapplication.ui.group.GroupDetailsViewModel
 import com.example.myapplication.ui.home.GroupAdapter
 import com.example.myapplication.ui.home.HomeContent
 import com.example.myapplication.ui.home.HomeUiState
@@ -28,7 +30,7 @@ class HomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private val viewModel: HomeViewModel by viewModels()
-    private val groupAdapter = GroupAdapter()
+    private val groupAdapter = GroupAdapter { startGroupDetails(it.id) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +48,7 @@ class HomeActivity : AppCompatActivity() {
 
         // UI callbacks only - these features do not exist in the app yet
         binding.btnBell.setOnClickListener { /* TODO: notifications */ }
-        binding.btnNewExpense.setOnClickListener { /* TODO: new expense flow */ }
+        binding.btnNewExpense.setOnClickListener { openNewExpense() }
         binding.fabAdd.setOnClickListener {
             startActivity(Intent(this, CreateGroupActivity::class.java))
         }
@@ -67,6 +69,36 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /** Expenses belong to a real group: pick one of the user's groups (if more than one), then open the screen. */
+    private fun openNewExpense() {
+        val groups = (viewModel.state.value as? HomeUiState.Success)?.content?.groups.orEmpty()
+        when (groups.size) {
+            0 -> Toast.makeText(this, "יש ליצור קבוצה לפני הוספת הוצאה", Toast.LENGTH_LONG).show()
+            1 -> startAddExpense(groups.first().id)
+            else -> AlertDialog.Builder(this)
+                .setTitle("באיזו קבוצה?")
+                .setItems(groups.map { listOfNotNull(it.icon, it.name).joinToString(" ") }.toTypedArray()) { _, i ->
+                    startAddExpense(groups[i].id)
+                }
+                .setNegativeButton("ביטול", null)
+                .show()
+        }
+    }
+
+    private fun startGroupDetails(groupId: String) {
+        startActivity(
+            Intent(this, GroupDetailsActivity::class.java)
+                .putExtra(GroupDetailsViewModel.EXTRA_GROUP_ID, groupId)
+        )
+    }
+
+    private fun startAddExpense(groupId: String) {
+        startActivity(
+            Intent(this, AddExpenseActivity::class.java)
+                .putExtra(AddExpenseViewModel.EXTRA_GROUP_ID, groupId)
+        )
     }
 
     private fun showEditNameDialog() {

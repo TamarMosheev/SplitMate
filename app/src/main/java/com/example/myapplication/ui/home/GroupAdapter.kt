@@ -29,13 +29,18 @@ fun formatShekel(amount: Double, withSign: Boolean): String {
     return "$sign${amountFormat.format(abs(amount))} ₪"
 }
 
-class GroupAdapter : ListAdapter<GroupItemUi, GroupAdapter.GroupViewHolder>(Diff) {
+class GroupAdapter(
+    private val onGroupClick: (GroupItemUi) -> Unit = {}
+) : ListAdapter<GroupItemUi, GroupAdapter.GroupViewHolder>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupViewHolder =
         GroupViewHolder(ItemGroupBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
-    override fun onBindViewHolder(holder: GroupViewHolder, position: Int) =
-        holder.bind(getItem(position))
+    override fun onBindViewHolder(holder: GroupViewHolder, position: Int) {
+        val item = getItem(position)
+        holder.bind(item)
+        holder.itemView.setOnClickListener { onGroupClick(item) }
+    }
 
     class GroupViewHolder(private val binding: ItemGroupBinding) : RecyclerView.ViewHolder(binding.root) {
 

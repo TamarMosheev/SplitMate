@@ -1,8 +1,12 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
+import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
@@ -11,6 +15,7 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityHomeBinding
 import com.example.myapplication.ui.home.GroupAdapter
 import com.example.myapplication.ui.home.HomeContent
@@ -36,18 +41,45 @@ class HomeActivity : AppCompatActivity() {
         }
         applyInsets()
 
+        binding.rvGroups.layoutManager = LinearLayoutManager(this)
         binding.rvGroups.adapter = groupAdapter
 
         // UI callbacks only - these features do not exist in the app yet
         binding.btnBell.setOnClickListener { /* TODO: notifications */ }
         binding.btnNewExpense.setOnClickListener { /* TODO: new expense flow */ }
-        binding.fabAdd.setOnClickListener { /* TODO: create group / expense */ }
+        binding.fabAdd.setOnClickListener {
+            startActivity(Intent(this, CreateGroupActivity::class.java))
+        }
+
+        // Long-press the greeting to rename; the UI updates via the live Firestore listener.
+        binding.tvGreeting.setOnLongClickListener {
+            showEditNameDialog()
+            true
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.state.collect(::render)
+                launch { viewModel.state.collect(::render) }
+                launch {
+                    viewModel.messages.collect {
+                        Toast.makeText(this@HomeActivity, it, Toast.LENGTH_LONG).show()
+                    }
+                }
             }
         }
+    }
+
+    private fun showEditNameDialog() {
+        val input = EditText(this).apply { setSingleLine() }
+        AlertDialog.Builder(this)
+            .setTitle("עריכת שם")
+            .setView(input)
+            .setPositiveButton("שמירה") { _, _ ->
+                val name = input.text.toString().trim()
+                if (name.isNotEmpty()) viewModel.updateName(name)
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
     }
 
     private fun applyInsets() {

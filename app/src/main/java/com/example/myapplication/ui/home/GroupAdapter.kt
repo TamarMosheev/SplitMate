@@ -46,6 +46,8 @@ class GroupAdapter : ListAdapter<GroupItemUi, GroupAdapter.GroupViewHolder>(Diff
             val overlap = (8 * density).toInt()
 
             binding.tvGroupName.text = item.name
+            binding.tvGroupIcon.text = item.icon
+            binding.tvGroupIcon.visibility = if (item.icon.isNullOrBlank()) View.GONE else View.VISIBLE
 
             binding.membersRow.removeAllViews()
             item.members.forEachIndexed { index, member ->
@@ -55,8 +57,11 @@ class GroupAdapter : ListAdapter<GroupItemUi, GroupAdapter.GroupViewHolder>(Diff
                 binding.membersRow.addView(avatar(member, size), params)
             }
 
-            val positive = item.personalBalance >= 0
-            binding.tvPersonalBalance.text = formatShekel(item.personalBalance, withSign = true)
+            val balance = item.personalBalance
+            binding.balanceRow.visibility = if (balance == null) View.GONE else View.VISIBLE
+            if (balance == null) return
+            val positive = balance >= 0
+            binding.tvPersonalBalance.text = formatShekel(balance, withSign = true)
             binding.tvPersonalBalance.setTextColor(
                 ContextCompat.getColor(context, if (positive) R.color.home_positive else R.color.home_negative)
             )

@@ -1,5 +1,6 @@
 package com.example.myapplication.repository
 
+import android.util.Log
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuth
@@ -117,8 +118,41 @@ class AuthRepository(
     private suspend fun saveUserProfile(uid: String, name: String, email: String) {
         withFirestoreTimeout {
             firestore.collection(USERS).document(uid)
-                .set(mapOf("name" to name, "email" to email), SetOptions.merge())
+                .set(
+                    mapOf("name" to name, "email" to email, "emailLower" to normalizeEmail(email)),
+                    SetOptions.merge()
+                )
                 .await()
+        }
+    }
+
+    /**
+     * Best-effort backfill so every signed-in user is searchable: creates users/{uid} if it is
+     * missing (e.g. Google login, accounts that pre-date profiles) and adds emailLower to old
+     * documents. Never overwrites an existing name.
+     */
+    suspend fun ensureUserProfile() {
+        val user = firebaseAuth.currentUser ?: return
+        val email = user.email.orEmpty()
+        try {
+            withFirestoreTimeout {
+                val ref = firestore.collection(USERS).document(user.uid)
+                val doc = ref.get().await()
+                val updates = mutableMapOf<String, Any>()
+                if (doc.getString("email").isNullOrBlank() && email.isNotBlank()) updates["email"] = email
+                if (doc.getString("emailLower").isNullOrBlank() && email.isNotBlank()) {
+                    updates["emailLower"] = normalizeEmail(email)
+                }
+                if (doc.getString("name").isNullOrBlank()) {
+                    user.displayName?.takeIf { it.isNotBlank() }?.let { updates["name"] = it }
+                }
+                if (updates.isNotEmpty()) {
+                    ref.set(updates, SetOptions.merge()).await()
+                    Log.d(TAG, "Backfilled users/${user.uid}: ${updates.keys}")
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "ensureUserProfile failed for users/${user.uid}", e)
         }
     }
 
@@ -210,8 +244,13 @@ class AuthRepository(
         firebaseAuth.signOut()
     }
 
-    private companion object {
-        const val USERS = "users"
-        const val FIRESTORE_TIMEOUT_MS = 15_000L
+    companion object {
+        private const val TAG = "AuthRepository"
+        private const val USERS = "users"
+
+        /** Single normalization used both when saving and when searching emails. */
+        fun normalizeEmail(email: String): String = email.trim().lowercase()
+
+        private const val FIRESTORE_TIMEOUT_MS = 15_000L
     }
 }

@@ -7,7 +7,9 @@ data class GroupItemUi(
     val id: String,
     val name: String,
     val members: List<GroupMemberUi>,
-    val personalBalance: Double
+    /** Null until real balance data exists; the card then hides the balance row. */
+    val personalBalance: Double?,
+    val icon: String? = null
 )
 
 data class HomeContent(

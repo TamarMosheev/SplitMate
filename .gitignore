@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Firebase credentials - never commit
 serviceAccountKey.json
 
@@ -5,3 +6,20 @@ serviceAccountKey.json
 __pycache__/
 .venv/
 .venv-local/
+=======
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+>>>>>>> 8859d5064d79d5171163791e06312aa0767e945e

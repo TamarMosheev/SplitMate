@@ -5,6 +5,10 @@ from firebase_admin import auth
 
 from firebase.firebase_service import FirebaseService, firebase_service
 
+# Tolerance for the server clock being slightly behind/ahead of Firebase's (a token
+# issued "in the future" by a second would otherwise fail with "Token used too early").
+CLOCK_SKEW_SECONDS = 10
+
 
 class AuthService:
     """Verifies Firebase ID tokens sent as 'Authorization: Bearer <token>'."""
@@ -26,7 +30,7 @@ class AuthService:
 
         self._firebase.initialize()  # makes sure the Firebase Admin app is initialized
         try:
-            return auth.verify_id_token(token)["uid"]
+            return auth.verify_id_token(token, clock_skew_seconds=CLOCK_SKEW_SECONDS)["uid"]
         except (ValueError, auth.InvalidIdTokenError):  # also covers expired tokens
             raise HTTPException(
                 status_code=401,

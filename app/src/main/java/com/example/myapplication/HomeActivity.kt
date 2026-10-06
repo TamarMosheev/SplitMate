@@ -19,6 +19,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityHomeBinding
 import com.example.myapplication.ui.expense.AddExpenseViewModel
 import com.example.myapplication.ui.group.GroupDetailsViewModel
+import com.example.myapplication.ui.group.showDeleteGroupConfirmation
 import com.example.myapplication.ui.home.GroupAdapter
 import com.example.myapplication.ui.home.HomeContent
 import com.example.myapplication.ui.home.HomeUiState
@@ -30,7 +31,11 @@ class HomeActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityHomeBinding
     private val viewModel: HomeViewModel by viewModels()
-    private val groupAdapter = GroupAdapter { startGroupDetails(it.id) }
+    private val groupAdapter = GroupAdapter(
+        onGroupClick = { startGroupDetails(it.id) },
+        // The trash icon only opens the confirmation; the delete itself happens when it is confirmed.
+        onDeleteClick = { group -> showDeleteGroupConfirmation(this) { viewModel.deleteGroup(group.id) } }
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -62,6 +67,7 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect(::render) }
+                launch { viewModel.deletingGroupId.collect { groupAdapter.deletingGroupId = it } }
                 launch {
                     viewModel.messages.collect {
                         Toast.makeText(this@HomeActivity, it, Toast.LENGTH_LONG).show()

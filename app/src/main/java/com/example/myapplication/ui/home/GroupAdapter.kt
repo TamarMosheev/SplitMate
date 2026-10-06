@@ -30,22 +30,43 @@ fun formatShekel(amount: Double, withSign: Boolean): String {
 }
 
 class GroupAdapter(
-    private val onGroupClick: (GroupItemUi) -> Unit = {}
+    private val onGroupClick: (GroupItemUi) -> Unit = {},
+    private val onDeleteClick: (GroupItemUi) -> Unit = {}
 ) : ListAdapter<GroupItemUi, GroupAdapter.GroupViewHolder>(Diff) {
+
+    /** The group whose deletion is in progress (null = none). Its row shows a spinner; every delete button is disabled. */
+    var deletingGroupId: String? = null
+        set(value) {
+            if (field != value) {
+                field = value
+                notifyItemRangeChanged(0, itemCount)
+            }
+        }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): GroupViewHolder =
         GroupViewHolder(ItemGroupBinding.inflate(LayoutInflater.from(parent.context), parent, false))
 
     override fun onBindViewHolder(holder: GroupViewHolder, position: Int) {
         val item = getItem(position)
-        holder.bind(item)
+        holder.bind(item, deletingGroupId)
         holder.itemView.setOnClickListener { onGroupClick(item) }
+        // Tapping the trash icon only asks for confirmation (the activity shows the dialog); it never deletes by itself.
+        holder.setOnDeleteClick { if (deletingGroupId == null) onDeleteClick(item) }
     }
 
     class GroupViewHolder(private val binding: ItemGroupBinding) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(item: GroupItemUi) {
+        fun setOnDeleteClick(listener: () -> Unit) = binding.btnDeleteGroup.setOnClickListener { listener() }
+
+        fun bind(item: GroupItemUi, deletingGroupId: String?) {
             val context = binding.root.context
+
+            // Delete is offered ONLY for groups the signed-in user created (item.canDelete).
+            val deletingThis = deletingGroupId == item.id
+            binding.btnDeleteGroup.visibility = if (item.canDelete && !deletingThis) View.VISIBLE else View.GONE
+            binding.btnDeleteGroup.isEnabled = deletingGroupId == null
+            binding.progressDeleteGroup.visibility = if (deletingThis) View.VISIBLE else View.GONE
+
             val density = context.resources.displayMetrics.density
             val size = (32 * density).toInt()
             val overlap = (8 * density).toInt()

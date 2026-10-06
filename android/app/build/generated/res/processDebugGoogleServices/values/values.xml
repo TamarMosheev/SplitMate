@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="default_web_client_id" translatable="false">466255464858-ffmpd0hpu3vlnnbj64bpigqi0l04csil.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">466255464858</string>
+    <string name="google_api_key" translatable="false">AIzaSyBxPXlwEw9hE7Z5RPceuayzJAI9dT5sYkE</string>
+    <string name="google_app_id" translatable="false">1:466255464858:android:77b3765335b58e8ac31223</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBxPXlwEw9hE7Z5RPceuayzJAI9dT5sYkE</string>
+    <string name="google_storage_bucket" translatable="false">splitmate-72b4c.firebasestorage.app</string>
+    <string name="project_id" translatable="false">splitmate-72b4c</string>
+</resources>

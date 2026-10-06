@@ -1,8 +1,20 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("com.google.gms.google-services")
 }
+
+// Where the SplitMate backend (FastAPI) runs. Override per machine in local.properties (git-ignored) or
+// ~/.gradle/gradle.properties:  splitmate.apiBaseUrl=http://192.168.1.20:8000/
+// Default 10.0.2.2 = the host PC as seen from the Android emulator.
+val localProperties = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+val apiBaseUrl: String = localProperties.getProperty("splitmate.apiBaseUrl")
+    ?: providers.gradleProperty("splitmate.apiBaseUrl").orNull
+    ?: "http://10.0.2.2:8000/"
 
 android {
     namespace = "com.example.myapplication"
@@ -16,6 +28,8 @@ android {
         versionName = "1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.trimEnd('/')}/\"")
     }
 
     buildTypes {
@@ -36,6 +50,10 @@ android {
     }
     buildFeatures {
         viewBinding = true
+        buildConfig = true
+    }
+    testOptions {
+        unitTests.isReturnDefaultValues = true
     }
 }
 
@@ -65,7 +83,13 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.4")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.4")
 
+    // SplitMate backend API (Firebase ID token in the Authorization header)
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+
     testImplementation(libs.junit)
+    testImplementation("com.squareup.okhttp3:mockwebserver:4.12.0")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

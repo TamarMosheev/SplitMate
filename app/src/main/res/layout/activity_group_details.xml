@@ -79,6 +79,43 @@
                 android:textSize="14sp"
                 tools:text="3 חברים" />
         </LinearLayout>
+
+        <!-- Delete group: shown only to the group's creator -->
+        <FrameLayout
+            android:layout_width="44dp"
+            android:layout_height="44dp">
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnDeleteGroup"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:outlineSpotShadowColor="@color/home_shadow"
+                android:visibility="gone"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="0dp"
+                tools:visibility="visible">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="מחק קבוצה"
+                    android:src="@drawable/ic_delete" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <ProgressBar
+                android:id="@+id/progressDeleteGroup"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:indeterminate="true"
+                android:indeterminateTint="@color/home_primary"
+                android:visibility="gone" />
+        </FrameLayout>
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView

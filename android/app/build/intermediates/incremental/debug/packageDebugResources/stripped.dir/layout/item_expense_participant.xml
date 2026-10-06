@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="58dp"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingHorizontal="12dp">
+
+    <CheckBox
+        android:id="@+id/cbParticipant"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:buttonTint="@color/home_primary" />
+
+    <ImageView
+        android:layout_width="34dp"
+        android:layout_height="34dp"
+        android:background="@drawable/bg_avatar"
+        android:importantForAccessibility="no"
+        android:padding="7dp"
+        android:src="@drawable/ic_person" />
+
+    <TextView
+        android:id="@+id/tvParticipantName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="10dp"
+        android:layout_weight="1"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textAlignment="viewStart"
+        android:textColor="@color/home_navy"
+        android:textSize="16sp"
+        tools:text="תמר" />
+
+    <TextView
+        android:id="@+id/tvParticipantAmount"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/home_navy"
+        android:textDirection="ltr"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        tools:text="₪0.00" />
+
+    <EditText
+        android:id="@+id/etParticipantExact"
+        android:layout_width="92dp"
+        android:layout_height="40dp"
+        android:background="@drawable/bg_exact_input"
+        android:hint="₪0.00"
+        android:importantForAutofill="no"
+        android:inputType="numberDecimal"
+        android:maxLines="1"
+        android:paddingHorizontal="10dp"
+        android:textColor="@color/home_navy"
+        android:textColorHint="@color/home_muted"
+        android:textDirection="ltr"
+        android:textSize="15sp"
+        android:visibility="gone" />
+</LinearLayout>

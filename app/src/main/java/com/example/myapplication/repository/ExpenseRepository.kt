@@ -27,7 +27,9 @@ data class GroupDetails(
     val id: String,
     val name: String,
     val icon: String,
-    val members: List<GroupMember>
+    val members: List<GroupMember>,
+    /** groups/{id}.createdBy: only this user may delete the group. */
+    val createdBy: String = ""
 )
 
 /** groups/{groupId}/expenses/{expenseId}. Everything is keyed by Firebase UID. */
@@ -64,7 +66,8 @@ class ExpenseRepository(
                     id = groupId,
                     name = doc.getString("name").orEmpty(),
                     icon = doc.getString("icon").orEmpty(),
-                    members = members
+                    members = members,
+                    createdBy = doc.getString("createdBy").orEmpty()
                 )
             )
         } catch (e: Exception) {
@@ -92,7 +95,7 @@ class ExpenseRepository(
         GroupMember(uid = uid, name = "", email = "")
     }
 
-    private class RawGroup(val name: String, val icon: String, val memberIds: List<String>)
+    private class RawGroup(val name: String, val icon: String, val memberIds: List<String>, val createdBy: String)
 
     private val memberCache = ConcurrentHashMap<String, GroupMember>()
 
@@ -112,7 +115,7 @@ class ExpenseRepository(
                 @Suppress("UNCHECKED_CAST")
                 val ids = (doc.get("memberIds") as? List<String>).orEmpty()
                 Log.d(TAG, "groups/$groupId snapshot: name='${doc.getString("name")}' members=${ids.size}")
-                trySend(Resource.Success(RawGroup(doc.getString("name").orEmpty(), doc.getString("icon").orEmpty(), ids)))
+                trySend(Resource.Success(RawGroup(doc.getString("name").orEmpty(), doc.getString("icon").orEmpty(), ids, doc.getString("createdBy").orEmpty())))
             }
         awaitClose { registration.remove() }
     }.mapLatest { raw ->
@@ -125,7 +128,7 @@ class ExpenseRepository(
                         }
                     }.awaitAll()
                 }
-                Resource.Success(GroupDetails(groupId, raw.data.name, raw.data.icon, members))
+                Resource.Success(GroupDetails(groupId, raw.data.name, raw.data.icon, members, raw.data.createdBy))
             }
             is Resource.Error -> raw
             Resource.Loading -> Resource.Loading

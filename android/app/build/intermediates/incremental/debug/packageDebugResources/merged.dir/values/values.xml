@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="black">#FF000000</color>
+    <color name="home_bg">#FFF3F8FF</color>
+    <color name="home_deep">#FF0B3D91</color>
+    <color name="home_light_surface">#FFE3EFFF</color>
+    <color name="home_muted">#FF5A7396</color>
+    <color name="home_navy">#FF0D2A4F</color>
+    <color name="home_negative">#FFD6303F</color>
+    <color name="home_negative_bg">#FFFDE4E6</color>
+    <color name="home_positive">#FF12995A</color>
+    <color name="home_positive_bg">#FFDCF6E9</color>
+    <color name="home_primary">#FF1E6FD9</color>
+    <color name="home_shadow">#590B3D91</color>
+    <color name="login_background">#FFF3F8FF</color>
+    <color name="login_deep">#FF0B3D91</color>
+    <color name="login_field_fill">#FFFFFFFF</color>
+    <color name="login_primary">#FF1E6FD9</color>
+    <color name="login_stroke">#FFC7D8EF</color>
+    <color name="login_text">#FF0D2A4F</color>
+    <color name="login_text_muted">#FF5A7396</color>
+    <color name="login_title">#FF0D2A4F</color>
+    <color name="white">#FFFFFFFF</color>
+    <string name="app_name">My Application</string>
+    <string name="default_web_client_id" translatable="false">466255464858-ffmpd0hpu3vlnnbj64bpigqi0l04csil.apps.googleusercontent.com</string>
+    <string name="gcm_defaultSenderId" translatable="false">466255464858</string>
+    <string name="google_api_key" translatable="false">AIzaSyBxPXlwEw9hE7Z5RPceuayzJAI9dT5sYkE</string>
+    <string name="google_app_id" translatable="false">1:466255464858:android:77b3765335b58e8ac31223</string>
+    <string name="google_crash_reporting_api_key" translatable="false">AIzaSyBxPXlwEw9hE7Z5RPceuayzJAI9dT5sYkE</string>
+    <string name="google_storage_bucket" translatable="false">splitmate-72b4c.firebasestorage.app</string>
+    <string name="project_id" translatable="false">splitmate-72b4c</string>
+    <style name="Base.Theme.MyApplication" parent="Theme.Material3.DayNight.NoActionBar">
+        
+        
+    </style>
+    <style name="CreateGroupSectionTitle">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textAlignment">viewStart</item>
+        <item name="android:textColor">@color/home_navy</item>
+        <item name="android:textSize">16sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="ExpenseQuickPill">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:background">@drawable/bg_pill_light</item>
+        <item name="android:clickable">true</item>
+        <item name="android:focusable">true</item>
+        <item name="android:gravity">center</item>
+        <item name="android:textColor">@color/home_deep</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Theme.MyApplication" parent="Base.Theme.MyApplication"/>
+    <style name="Theme.MyApplication.Splash" parent="Theme.MyApplication">
+        <item name="android:windowBackground">@color/white</item>
+        <item name="android:statusBarColor">@color/white</item>
+        <item name="android:navigationBarColor">@color/white</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+    </style>
+</resources>

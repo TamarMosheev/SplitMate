@@ -9,7 +9,9 @@ data class GroupItemUi(
     val members: List<GroupMemberUi>,
     /** Null until real balance data exists; the card then hides the balance row. */
     val personalBalance: Double?,
-    val icon: String? = null
+    val icon: String? = null,
+    /** True only when the signed-in user created this group (groups/{id}.createdBy == uid): only they may delete it. */
+    val canDelete: Boolean = false
 )
 
 data class HomeContent(

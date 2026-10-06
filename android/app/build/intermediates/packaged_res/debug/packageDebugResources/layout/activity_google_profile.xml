@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/googleProfileRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/login_background"
+    android:clipToPadding="false"
+    android:fillViewport="true"
+    android:layoutDirection="rtl"
+    tools:context=".GoogleProfileActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="36dp"
+        android:paddingTop="12dp"
+        android:paddingBottom="32dp">
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnBack"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:layout_gravity="start"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/white"
+            app:cardCornerRadius="21dp"
+            app:cardElevation="4dp"
+            app:strokeWidth="0dp">
+
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:contentDescription="חזרה"
+                android:src="@drawable/ic_arrow_forward" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <FrameLayout
+            android:layout_width="104dp"
+            android:layout_height="104dp"
+            android:layout_marginTop="28dp">
+
+            <TextView
+                android:id="@+id/tvAvatar"
+                android:layout_width="96dp"
+                android:layout_height="96dp"
+                android:layout_gravity="center"
+                android:background="@drawable/bg_circle_blue"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:textSize="40sp"
+                android:textStyle="bold"
+                tools:text="ת" />
+
+            <FrameLayout
+                android:layout_width="34dp"
+                android:layout_height="34dp"
+                android:layout_gravity="bottom|end"
+                android:background="@drawable/bg_circle_white"
+                android:elevation="4dp">
+
+                <ImageView
+                    android:layout_width="20dp"
+                    android:layout_height="20dp"
+                    android:layout_gravity="center"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_google" />
+            </FrameLayout>
+        </FrameLayout>
+
+        <TextView
+            android:id="@+id/tvWelcome"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:gravity="center"
+            android:textColor="@color/login_title"
+            android:textSize="26sp"
+            android:textStyle="bold"
+            tools:text="ברוכים הבאים" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:gravity="center"
+            android:text="החשבון נוצר בהצלחה עם Google."
+            android:textColor="@color/login_text_muted"
+            android:textSize="16sp" />
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilGoogleEmail"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:hint="אימייל"
+            app:boxBackgroundColor="@color/login_background"
+            app:boxCornerRadiusBottomEnd="18dp"
+            app:boxCornerRadiusBottomStart="18dp"
+            app:boxCornerRadiusTopEnd="18dp"
+            app:boxCornerRadiusTopStart="18dp"
+            app:boxStrokeColor="@color/login_stroke"
+            app:startIconDrawable="@drawable/ic_google"
+            app:startIconTint="@null">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etGoogleEmail"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:clickable="false"
+                android:cursorVisible="false"
+                android:focusable="false"
+                android:inputType="none"
+                android:longClickable="false"
+                android:textAlignment="viewStart"
+                android:textColor="@color/login_text_muted" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/tilGoogleName"
+            style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="שם"
+            app:boxBackgroundColor="@color/white"
+            app:boxCornerRadiusBottomEnd="18dp"
+            app:boxCornerRadiusBottomStart="18dp"
+            app:boxCornerRadiusTopEnd="18dp"
+            app:boxCornerRadiusTopStart="18dp"
+            app:boxStrokeColor="@color/login_primary"
+            app:hintTextColor="@color/login_primary"
+            app:startIconDrawable="@drawable/ic_person"
+            app:startIconTint="@null">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etGoogleName"
+                android:layout_width="match_parent"
+                android:layout_height="60dp"
+                android:imeOptions="actionDone"
+                android:inputType="textPersonName|textCapWords"
+                android:textAlignment="viewStart"
+                android:textColor="@color/login_text" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnContinue"
+            android:layout_width="match_parent"
+            android:layout_height="62dp"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_login_button"
+            android:elevation="6dp"
+            android:outlineSpotShadowColor="@color/login_primary"
+            android:text="המשך"
+            android:textColor="@color/white"
+            android:textSize="21sp"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+
+        <ProgressBar
+            android:id="@+id/progressContinue"
+            style="?android:attr/progressBarStyleSmall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:indeterminateTint="@color/login_primary"
+            android:visibility="gone" />
+    </LinearLayout>
+</ScrollView>

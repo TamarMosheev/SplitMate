@@ -89,13 +89,16 @@ class HomeRepository(
         }
     }.mapLatest { groups ->
         loadMemberNames(groups.flatMap { it.memberIds }.toSet())
+        val uid = authRepository.currentUser?.uid
         groups.map { g ->
             GroupItemUi(
                 id = g.id,
                 name = g.name,
                 members = g.memberIds.map { GroupMemberUi(memberNames[it]) },
                 personalBalance = null, // TODO: derive from real expenses once balance logic exists
-                icon = g.icon.takeIf { it.isNotBlank() }
+                icon = g.icon.takeIf { it.isNotBlank() },
+                // Same rule as the backend: only the creator may delete a group.
+                canDelete = uid != null && g.createdBy.isNotBlank() && g.createdBy == uid
             )
         }
     }

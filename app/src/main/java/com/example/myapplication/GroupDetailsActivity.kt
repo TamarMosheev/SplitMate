@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -17,8 +18,10 @@ import com.example.myapplication.databinding.ActivityGroupDetailsBinding
 import com.example.myapplication.databinding.ItemMemberAvatarBinding
 import com.example.myapplication.ui.expense.AddExpenseViewModel
 import com.example.myapplication.ui.group.ExpenseAdapter
+import com.example.myapplication.ui.group.GroupDetailsEvent
 import com.example.myapplication.ui.group.GroupDetailsUiState
 import com.example.myapplication.ui.group.GroupDetailsViewModel
+import com.example.myapplication.ui.group.showDeleteGroupConfirmation
 import kotlinx.coroutines.launch
 
 class GroupDetailsActivity : AppCompatActivity() {
@@ -56,9 +59,28 @@ class GroupDetailsActivity : AppCompatActivity() {
             )
         }
 
+        // The trash button only asks for confirmation; the real delete happens when it is confirmed.
+        binding.btnDeleteGroup.setOnClickListener {
+            showDeleteGroupConfirmation(this) { viewModel.deleteGroup() }
+        }
+
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.state.collect(::render)
+                launch { viewModel.state.collect(::render) }
+                launch {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            is GroupDetailsEvent.Message ->
+                                Toast.makeText(this@GroupDetailsActivity, event.text, Toast.LENGTH_LONG).show()
+                            // Deleted for real on the backend: never stay on a deleted group's screen.
+                            // Home observes the group list live, so it refreshes by itself.
+                            is GroupDetailsEvent.Deleted -> {
+                                Toast.makeText(this@GroupDetailsActivity, event.text, Toast.LENGTH_LONG).show()
+                                finish()
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -96,6 +118,10 @@ class GroupDetailsActivity : AppCompatActivity() {
         binding.tvError.text = message
 
         // No add-expense without a loaded group
-        binding.btnAddExpense.isEnabled = group != null
+        binding.btnAddExpense.isEnabled = group != null && !s.deleting
+
+        // Delete is offered only to the creator; while it runs the button gives way to a spinner (no double taps).
+        binding.btnDeleteGroup.visibility = if (s.canDelete && !s.deleting) View.VISIBLE else View.GONE
+        binding.progressDeleteGroup.visibility = if (s.deleting) View.VISIBLE else View.GONE
     }
 }

@@ -1,25 +1,33 @@
-<<<<<<< HEAD
-# Firebase credentials - never commit
+# --- Secrets: never commit ---
+# (no leading slash = matches at any depth, so backend/serviceAccountKey.json is covered too)
 serviceAccountKey.json
+backend/serviceAccountKey.json
+serviceAccount*.json
+*-firebase-adminsdk-*.json
+.env
+.env.*
+!.env.example
 
-# Python
+# --- Python ---
 __pycache__/
+*.py[cod]
 .venv/
 .venv-local/
-=======
+venv/
+
+# --- IDE ---
+.idea/
 *.iml
+
+# --- Android / Gradle ---
 .gradle
+.kotlin/
 /local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
+local.properties
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
->>>>>>> 8859d5064d79d5171163791e06312aa0767e945e
+
+# --- OS ---
+.DS_Store

@@ -1,0 +1,74 @@
+[
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_member.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_member.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_icon.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_icon.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_register.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_register.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_forgot_password.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_forgot_password.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_home.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_home.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_expense.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_expense.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_main.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_splash.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_splash.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_expense_participant.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_expense_participant.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_group.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_group.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_create_group.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_create_group.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_search_result.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_search_result.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_add_expense.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_add_expense.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_new_password.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_new_password.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_payer_chip.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_payer_chip.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_group_details.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_group_details.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/activity_google_profile.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/activity_google_profile.xml"
+    },
+    {
+        "merged": "com.example.myapplication.app-mergeDebugResources-49:/layout/item_member_avatar.xml",
+        "source": "com.example.myapplication.app-main-52:/layout/item_member_avatar.xml"
+    }
+]

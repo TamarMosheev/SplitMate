@@ -1,34 +1,42 @@
 package com.example.myapplication.ui.home
 
 import android.util.Log
-import com.example.myapplication.data.model.GROUPS_COLLECTION
-import com.example.myapplication.data.model.Group
+import com.example.myapplication.data.api.ApiErrorMapper
+import com.example.myapplication.data.api.ApiService
+import com.example.myapplication.data.api.RetrofitClient
 import com.example.myapplication.repository.AuthRepository
+import com.example.myapplication.ui.group.canDeleteGroup
+import com.example.myapplication.ui.group.logGroupDeleteDebug
 import com.example.myapplication.utils.Resource
-import com.google.firebase.firestore.DocumentSnapshot.ServerTimestampBehavior
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
+import java.math.BigDecimal
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.transformLatest
+import kotlinx.coroutines.flow.update
+import retrofit2.HttpException
 import kotlinx.coroutines.tasks.await
 
 /**
  * Supplies real Home data.
  *
  * The user's profile is observed live from users/{uid} (uid = FirebaseAuth uid).
- * Groups are observed live from groups where memberIds contains the uid. Balances have no data source yet.
+ * Groups come from the FastAPI backend (GET /groups); the overall balance is summed from GET /groups/{id}/balances.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeRepository(
-    private val authRepository: AuthRepository = AuthRepository()
+    private val authRepository: AuthRepository = AuthRepository(),
+    private val apiService: ApiService = RetrofitClient.apiService
 ) {
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
@@ -42,66 +50,99 @@ class HomeRepository(
 
     fun observeHome(): Flow<Resource<HomeContent>> =
         combine(observeProfile(), observeGroups()) { profile, groups ->
-            when (profile) {
-                is Resource.Success -> Resource.Success(profile.data.copy(groups = groups))
-                is Resource.Error -> profile
-                Resource.Loading -> Resource.Loading
+            when {
+                profile is Resource.Error -> profile
+                groups is Resource.Error -> groups
+                profile is Resource.Success && groups is Resource.Success ->
+                    Resource.Success(
+                        profile.data.copy(
+                            groups = groups.data.groups,
+                            generalBalance = groups.data.balance,
+                            balanceLoading = groups.data.balanceLoading
+                        )
+                    )
+                else -> Resource.Loading
             }
         }
 
     private val memberNames = ConcurrentHashMap<String, String>()
 
-    /** Live groups where the signed-in user is a member (groups/{id}.memberIds contains uid), newest first. */
-    private fun observeGroups(): Flow<List<GroupItemUi>> = callbackFlow<List<Group>> {
-        val uid = authRepository.currentUser?.uid
-        if (uid == null) {
-            trySend(emptyList())
-            close()
-            return@callbackFlow
+    /** Bumped by [refreshGroups]; every change re-fetches GET /groups. */
+    private val refreshTrigger = MutableStateFlow(0)
+
+    fun refreshGroups() {
+        refreshTrigger.update { it + 1 }
+    }
+
+    /** Groups the signed-in user belongs to, loaded from the FastAPI backend (GET /groups), newest first. */
+    private fun observeGroups(): Flow<Resource<GroupsSnapshot>> = refreshTrigger.transformLatest {
+        val groups = try {
+            apiService.getGroups()
+                .mapNotNull { it.toGroup() }
+                .sortedByDescending { it.createdAtMillis }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "GET /groups failed", e)
+            emit(Resource.Error(ApiErrorMapper.message(e)))
+            return@transformLatest
         }
-        val registration = firestore.collection(GROUPS_COLLECTION)
-            .whereArrayContains("memberIds", uid)
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e(TAG, "Groups listener failed for uid=$uid", error)
-                    trySend(emptyList())
-                    return@addSnapshotListener
-                }
-                val groups = snapshot?.documents.orEmpty().map { doc ->
-                    @Suppress("UNCHECKED_CAST")
-                    Group(
-                        id = doc.id,
-                        name = doc.getString("name").orEmpty(),
-                        icon = doc.getString("icon").orEmpty(),
-                        createdBy = doc.getString("createdBy").orEmpty(),
-                        memberIds = (doc.get("memberIds") as? List<String>).orEmpty(),
-                        createdAtMillis = doc.getTimestamp("createdAt", ServerTimestampBehavior.ESTIMATE)
-                            ?.toDate()?.time ?: Long.MAX_VALUE
-                    )
-                }.sortedByDescending { it.createdAtMillis }
-                Log.d(TAG, "uid=$uid groups snapshot: ${groups.size} groups fromCache=${snapshot?.metadata?.isFromCache}")
-                groups.forEach { Log.d(TAG, "  group id=${it.id} name='${it.name}' icon=${it.icon} members=${it.memberIds.size}") }
-                trySend(groups)
-            }
-        awaitClose {
-            Log.d(TAG, "Removing groups listener for uid=$uid")
-            registration.remove()
-        }
-    }.mapLatest { groups ->
+        Log.d(TAG, "GET /groups returned ${groups.size} group(s)")
         loadMemberNames(groups.flatMap { it.memberIds }.toSet())
-        val uid = authRepository.currentUser?.uid
-        groups.map { g ->
+        val myUid = authRepository.currentUser?.uid
+        val items = groups.map { g ->
             GroupItemUi(
                 id = g.id,
                 name = g.name,
                 members = g.memberIds.map { GroupMemberUi(memberNames[it]) },
-                personalBalance = null, // TODO: derive from real expenses once balance logic exists
+                personalBalance = null, // TODO: per-group balance on the group card
                 icon = g.icon.takeIf { it.isNotBlank() },
-                // Same rule as the backend: only the creator may delete a group.
-                canDelete = uid != null && g.createdBy.isNotBlank() && g.createdBy == uid
+                createdBy = g.createdBy,
+                canDelete = canDeleteGroup(g.createdBy, myUid).also {
+                    logGroupDeleteDebug("Home", g.id, g.name, g.createdBy, myUid, it)
+                }
             )
         }
+        // Show the groups right away, then fill in the overall balance when the requests finish.
+        emit(Resource.Success(GroupsSnapshot(items, balance = null, balanceLoading = true)))
+        emit(Resource.Success(GroupsSnapshot(items, loadOverallBalance(groups.map { it.id }), balanceLoading = false)))
     }
+
+    /**
+     * Sums the signed-in user's balance over GET /groups/{id}/balances for every group.
+     * The user's uid is looked up in each returned map (missing = 0). A failing group is logged and skipped.
+     * Returns null when there are groups but every balance request failed (nothing trustworthy to show).
+     */
+    private suspend fun loadOverallBalance(groupIds: List<String>): BigDecimal? {
+        val uid = authRepository.currentUser?.uid ?: return null
+        if (groupIds.isEmpty()) return BigDecimal.ZERO
+        val results = coroutineScope {
+            groupIds.map { id ->
+                async {
+                    try {
+                        (apiService.getGroupBalances(id)[uid] ?: BigDecimal.ZERO).also {
+                            Log.d(TAG, "Balance for group $id: $it")
+                        }
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val detail = (e as? HttpException)?.code()?.toString() ?: e.javaClass.simpleName
+                        Log.e(TAG, "GET /groups/$id/balances failed ($detail): ${ApiErrorMapper.message(e)}", e)
+                        null
+                    }
+                }
+            }.awaitAll()
+        }
+        val ok = results.filterNotNull()
+        if (ok.isEmpty()) return null
+        return ok.fold(BigDecimal.ZERO, BigDecimal::add)
+    }
+
+    private data class GroupsSnapshot(
+        val groups: List<GroupItemUi>,
+        val balance: BigDecimal?,
+        val balanceLoading: Boolean
+    )
 
     /** Fetches users/{uid}.name for members not seen yet; failures leave a generic avatar. */
     private suspend fun loadMemberNames(uids: Set<String>) = coroutineScope {

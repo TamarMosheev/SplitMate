@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Local development only: allow plain HTTP to the FastAPI host on the LAN. Keep in sync with ApiConfig.BASE_URL. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">172.30.33.169</domain>
+    </domain-config>
+</network-security-config>

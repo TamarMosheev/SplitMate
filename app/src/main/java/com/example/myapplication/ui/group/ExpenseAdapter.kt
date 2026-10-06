@@ -7,9 +7,11 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.databinding.ItemExpenseBinding
-import com.example.myapplication.ui.home.formatShekel
+import com.example.myapplication.ui.balance.formatMoney
 
-class ExpenseAdapter : ListAdapter<ExpenseUi, ExpenseAdapter.VH>(Diff) {
+class ExpenseAdapter(
+    private val onExpenseClick: (ExpenseUi) -> Unit = {}
+) : ListAdapter<ExpenseUi, ExpenseAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
         VH(ItemExpenseBinding.inflate(LayoutInflater.from(parent.context), parent, false))
@@ -18,12 +20,14 @@ class ExpenseAdapter : ListAdapter<ExpenseUi, ExpenseAdapter.VH>(Diff) {
         val item = getItem(position)
         val b = holder.binding
         b.tvExpenseDescription.text = item.description
-        b.tvExpenseAmount.text = formatShekel(item.amount, withSign = false)
+        b.tvExpenseAmount.text = formatMoney(item.amount)
         b.tvExpensePayer.text = item.payerLabel
         b.tvExpenseDate.text = item.dateText
         b.tvExpenseDate.visibility = if (item.dateText == null) View.GONE else View.VISIBLE
-        b.tvExpenseSplit.text = item.splitLabel
-        b.tvExpenseSplit.visibility = if (item.splitLabel == null) View.GONE else View.VISIBLE
+        // The user's own share, only when the data states it exactly.
+        b.tvExpenseSplit.text = item.shareText
+        b.tvExpenseSplit.visibility = if (item.shareText == null) View.GONE else View.VISIBLE
+        holder.itemView.setOnClickListener { onExpenseClick(item) }
     }
 
     class VH(val binding: ItemExpenseBinding) : RecyclerView.ViewHolder(binding.root)

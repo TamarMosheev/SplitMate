@@ -2,8 +2,8 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.repository.DeleteGroupResult
-import com.example.myapplication.repository.GroupDeletionRepository
+import com.example.myapplication.repository.NotificationRepository
+import com.example.myapplication.ui.group.GroupDeleter
 import com.example.myapplication.utils.Resource
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: HomeRepository = HomeRepository(),
-    private val deletion: GroupDeletionRepository = GroupDeletionRepository()
+    private val notificationRepository: NotificationRepository = NotificationRepository()
 ) : ViewModel() {
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
@@ -27,15 +27,42 @@ class HomeViewModel(
     private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
     val messages: SharedFlow<String> = _messages.asSharedFlow()
 
-    /** The group being deleted right now (null = none). Drives the row spinner and blocks double taps. */
-    private val _deletingGroupId = MutableStateFlow<String?>(null)
-    val deletingGroupId: StateFlow<String?> = _deletingGroupId.asStateFlow()
+    /** Unread notifications for the bell badge; 0 hides it. Polled (no push yet). */
+    private val _unreadCount = MutableStateFlow(0)
+    val unreadCount: StateFlow<Int> = _unreadCount.asStateFlow()
 
     private var observeJob: Job? = null
+
+    /** The shared group deletion (same one My Balance and Group Details use). */
+    val deleter = GroupDeleter(viewModelScope)
+
+    /**
+     * Confirmed by the user in the UI. The group leaves the list only when the refetched GET /groups no
+     * longer returns it; the unread count is refreshed because the server also deletes its notifications.
+     */
+    fun deleteGroup(group: GroupItemUi) {
+        if (group.canDelete) deleter.delete(group.id)
+    }
+
+    /** GET /notifications/unread-count. A failure keeps the previous badge value. */
+    fun refreshUnreadCount() {
+        viewModelScope.launch {
+            val r = notificationRepository.unreadCount()
+            if (r is Resource.Success) _unreadCount.value = r.data
+        }
+    }
 
     init {
         load()
         viewModelScope.launch { repository.ensureUserProfile() }
+        viewModelScope.launch {
+            deleter.events.collect { e ->
+                if (e.groupIsGone) {
+                    repository.refreshGroups()
+                    refreshUnreadCount()
+                }
+            }
+        }
     }
 
     /** (Re)starts the live observation. The listener is removed when the job/ViewModel is cancelled. */
@@ -53,44 +80,13 @@ class HomeViewModel(
         }
     }
 
+    /** Re-fetches GET /groups (e.g. after returning from creating a group). */
+    fun refreshGroups() = repository.refreshGroups()
+
     fun updateName(name: String) {
         viewModelScope.launch {
             val result = repository.updateName(name.trim())
             if (result is Resource.Error) _messages.tryEmit(result.message)
-        }
-    }
-
-    /**
-     * Deletes a group through the real backend (DELETE /groups/{id}). The group leaves the list only after the
-     * backend confirms the delete; on any failure it stays exactly as it was.
-     */
-    fun deleteGroup(groupId: String) {
-        if (_deletingGroupId.value != null) return // a delete is already running: ignore double taps
-        _deletingGroupId.value = groupId
-        viewModelScope.launch {
-            try {
-                when (deletion.deleteGroup(groupId)) {
-                    DeleteGroupResult.Deleted -> {
-                        removeGroupFromState(groupId) // backend confirmed; the live Firestore listener confirms it too
-                        _messages.tryEmit("הקבוצה נמחקה בהצלחה")
-                    }
-                    // The group is already gone on the server; the live group list drops it by itself.
-                    DeleteGroupResult.AlreadyGone -> _messages.tryEmit("הקבוצה כבר לא קיימת")
-                    DeleteGroupResult.NotAllowed -> _messages.tryEmit("אין לך הרשאה למחוק את הקבוצה")
-                    DeleteGroupResult.SessionExpired -> _messages.tryEmit("פג תוקף ההתחברות. התחברו מחדש ונסו שוב")
-                    DeleteGroupResult.Failed -> _messages.tryEmit("לא ניתן למחוק את הקבוצה. נסי שוב.")
-                }
-            } finally {
-                _deletingGroupId.value = null
-            }
-        }
-    }
-
-    private fun removeGroupFromState(groupId: String) {
-        _state.update { state ->
-            if (state is HomeUiState.Success) {
-                HomeUiState.Success(state.content.copy(groups = state.content.groups.filterNot { it.id == groupId }))
-            } else state
         }
     }
 }

@@ -16,15 +16,19 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.credentials.ClearCredentialStateRequest
+import androidx.credentials.CredentialManager
 import com.example.myapplication.databinding.ActivityHomeBinding
+import com.example.myapplication.repository.AuthRepository
 import com.example.myapplication.ui.expense.AddExpenseViewModel
 import com.example.myapplication.ui.group.GroupDetailsViewModel
-import com.example.myapplication.ui.group.showDeleteGroupConfirmation
+import com.example.myapplication.ui.group.confirmDeleteGroup
 import com.example.myapplication.ui.home.GroupAdapter
+import com.example.myapplication.ui.home.GroupItemUi
 import com.example.myapplication.ui.home.HomeContent
 import com.example.myapplication.ui.home.HomeUiState
 import com.example.myapplication.ui.home.HomeViewModel
-import com.example.myapplication.ui.home.formatShekel
+import com.example.myapplication.ui.home.formatBalanceSummary
 import kotlinx.coroutines.launch
 
 class HomeActivity : AppCompatActivity() {
@@ -33,9 +37,10 @@ class HomeActivity : AppCompatActivity() {
     private val viewModel: HomeViewModel by viewModels()
     private val groupAdapter = GroupAdapter(
         onGroupClick = { startGroupDetails(it.id) },
-        // The trash icon only opens the confirmation; the delete itself happens when it is confirmed.
-        onDeleteClick = { group -> showDeleteGroupConfirmation(this) { viewModel.deleteGroup(group.id) } }
+        // The shared confirmation; the delete itself runs in the ViewModel's shared GroupDeleter.
+        onDeleteClick = { group -> confirmDeleteGroup(this) { viewModel.deleteGroup(group) } }
     )
+    private var shownGroups: List<GroupItemUi> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +57,13 @@ class HomeActivity : AppCompatActivity() {
         binding.rvGroups.adapter = groupAdapter
 
         // UI callbacks only - these features do not exist in the app yet
-        binding.btnBell.setOnClickListener { /* TODO: notifications */ }
+        binding.btnBell.setOnClickListener {
+            startActivity(Intent(this, NotificationsActivity::class.java))
+        }
+        binding.btnLogout.setOnClickListener { confirmLogout() }
+        binding.balanceCard.setOnClickListener {
+            startActivity(Intent(this, MyBalanceActivity::class.java))
+        }
         binding.btnNewExpense.setOnClickListener { openNewExpense() }
         binding.fabAdd.setOnClickListener {
             startActivity(Intent(this, CreateGroupActivity::class.java))
@@ -67,7 +78,13 @@ class HomeActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect(::render) }
-                launch { viewModel.deletingGroupId.collect { groupAdapter.deletingGroupId = it } }
+                launch { viewModel.unreadCount.collect(::renderBellBadge) }
+                launch { viewModel.deleter.deletingIds.collect { submitGroups() } }
+                launch {
+                    viewModel.deleter.events.collect {
+                        Toast.makeText(this@HomeActivity, it.message, Toast.LENGTH_LONG).show()
+                    }
+                }
                 launch {
                     viewModel.messages.collect {
                         Toast.makeText(this@HomeActivity, it, Toast.LENGTH_LONG).show()
@@ -75,6 +92,29 @@ class HomeActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    /** The group list with each group's "deleting" state merged in. */
+    private fun submitGroups() {
+        val deleting = viewModel.deleter.deletingIds.value
+        groupAdapter.submitList(shownGroups.map { it.copy(isDeleting = it.id in deleting) })
+    }
+
+    /** No push yet: poll the unread count whenever Home is shown again (incl. back from Notifications). */
+    override fun onResume() {
+        super.onResume()
+        viewModel.refreshUnreadCount()
+    }
+
+    private fun renderBellBadge(count: Int) {
+        binding.tvBellBadge.visibility = if (count > 0) View.VISIBLE else View.GONE
+        binding.tvBellBadge.text = if (count > 9) "9+" else count.toString()
+    }
+
+    /** Coming back from another screen (e.g. a new group was created): reload from the backend. */
+    override fun onRestart() {
+        super.onRestart()
+        viewModel.refreshGroups()
     }
 
     /** Expenses belong to a real group: pick one of the user's groups (if more than one), then open the screen. */
@@ -105,6 +145,27 @@ class HomeActivity : AppCompatActivity() {
             Intent(this, AddExpenseActivity::class.java)
                 .putExtra(AddExpenseViewModel.EXTRA_GROUP_ID, groupId)
         )
+    }
+
+    private fun confirmLogout() {
+        AlertDialog.Builder(this)
+            .setTitle("התנתקות")
+            .setMessage("להתנתק מהחשבון?")
+            .setPositiveButton("התנתקות") { _, _ ->
+                AuthRepository().logout()
+                lifecycleScope.launch {
+                    runCatching {
+                        CredentialManager.create(this@HomeActivity)
+                            .clearCredentialState(ClearCredentialStateRequest())
+                    }
+                    startActivity(
+                        Intent(this@HomeActivity, MainActivity::class.java)
+                            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    )
+                }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
     }
 
     private fun showEditNameDialog() {
@@ -150,16 +211,23 @@ class HomeActivity : AppCompatActivity() {
         binding.tvGreeting.text = greeting(content.userName)
 
         val balance = content.generalBalance
-        binding.tvBalanceAmount.visibility = if (balance != null) View.VISIBLE else View.GONE
-        binding.tvBalanceUnavailable.visibility = if (balance == null) View.VISIBLE else View.GONE
-        if (balance != null) binding.tvBalanceAmount.text = formatShekel(balance, withSign = false)
+        val showAmount = balance != null && !content.balanceLoading
+        binding.tvBalanceAmount.visibility = if (showAmount) View.VISIBLE else View.GONE
+        binding.tvBalanceUnavailable.visibility = if (showAmount) View.GONE else View.VISIBLE
+        if (showAmount) {
+            binding.tvBalanceAmount.text = formatBalanceSummary(balance!!)
+        } else {
+            binding.tvBalanceUnavailable.text =
+                if (content.balanceLoading) "טוען מאזן…" else "אין עדיין נתוני מאזן"
+        }
 
         val count = content.groups.size
         binding.chipGroupCount.visibility = if (count > 0) View.VISIBLE else View.GONE
         if (count > 0) binding.chipGroupCount.text = "$count קבוצות פעילות"
 
         binding.tvEmptyTitle.visibility = if (count == 0) View.VISIBLE else View.GONE
-        groupAdapter.submitList(content.groups)
+        shownGroups = content.groups
+        submitGroups()
     }
 
     private fun greeting(name: String?) =

@@ -56,10 +56,54 @@
                         android:textSize="13sp" />
                 </LinearLayout>
 
+                <FrameLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:clipChildren="false">
+
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnBell"
+                        android:layout_width="40dp"
+                        android:layout_height="40dp"
+                        android:layout_margin="4dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/white"
+                        app:cardCornerRadius="20dp"
+                        app:cardElevation="4dp"
+                        app:strokeWidth="0dp">
+
+                        <ImageView
+                            android:layout_width="22dp"
+                            android:layout_height="22dp"
+                            android:layout_gravity="center"
+                            android:contentDescription="התראות"
+                            android:src="@drawable/ic_bell" />
+                    </com.google.android.material.card.MaterialCardView>
+
+                    <TextView
+                        android:id="@+id/tvBellBadge"
+                        android:layout_width="wrap_content"
+                        android:layout_height="18dp"
+                        android:layout_gravity="top|end"
+                        android:background="@drawable/bg_badge_count"
+                        android:elevation="8dp"
+                        android:gravity="center"
+                        android:minWidth="18dp"
+                        android:paddingHorizontal="4dp"
+                        android:textColor="@color/white"
+                        android:textSize="10sp"
+                        android:textStyle="bold"
+                        android:visibility="gone"
+                        tools:text="3"
+                        tools:visibility="visible" />
+                </FrameLayout>
+
                 <com.google.android.material.card.MaterialCardView
-                    android:id="@+id/btnBell"
-                    android:layout_width="40dp"
+                    android:id="@+id/btnLogout"
+                    android:layout_width="wrap_content"
                     android:layout_height="40dp"
+                    android:layout_marginStart="8dp"
                     android:clickable="true"
                     android:focusable="true"
                     app:cardBackgroundColor="@color/white"
@@ -67,12 +111,14 @@
                     app:cardElevation="4dp"
                     app:strokeWidth="0dp">
 
-                    <ImageView
-                        android:layout_width="22dp"
-                        android:layout_height="22dp"
-                        android:layout_gravity="center"
-                        android:contentDescription="התראות"
-                        android:src="@drawable/ic_bell" />
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="match_parent"
+                        android:gravity="center"
+                        android:paddingHorizontal="14dp"
+                        android:text="התנתקות"
+                        android:textColor="@color/home_navy"
+                        android:textSize="13sp" />
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
@@ -154,9 +200,9 @@
                             android:layout_height="wrap_content"
                             android:layout_marginTop="6dp"
                             android:textColor="@color/white"
-                            android:textSize="38sp"
+                            android:textSize="30sp"
                             android:textStyle="bold"
-                            tools:text="0 ₪" />
+                            tools:text="מגיע לך ₪120.5" />
 
                         <TextView
                             android:id="@+id/tvBalanceUnavailable"

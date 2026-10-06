@@ -10,7 +10,7 @@
     android:orientation="vertical"
     tools:context=".GroupDetailsActivity">
 
-    <!-- Header: back, group icon, name, member count -->
+    <!-- Header: back, group icon, name -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -48,82 +48,81 @@
             android:gravity="center"
             android:textSize="26sp"
             android:visibility="gone"
-            tools:text="🏠"
+            tools:text="🌸"
             tools:visibility="visible" />
 
-        <LinearLayout
+        <TextView
+            android:id="@+id/tvGroupName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
             android:layout_weight="1"
-            android:orientation="vertical">
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAlignment="viewStart"
+            android:textColor="@color/home_navy"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            tools:text="גינה של הבניינים אורים 6" />
 
-            <TextView
-                android:id="@+id/tvGroupName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textAlignment="viewStart"
-                android:textColor="@color/home_navy"
-                android:textSize="22sp"
-                android:textStyle="bold"
-                tools:text="דירה בתל אביב" />
-
-            <TextView
-                android:id="@+id/tvMemberCount"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAlignment="viewStart"
-                android:textColor="@color/home_muted"
-                android:textSize="14sp"
-                tools:text="3 חברים" />
-        </LinearLayout>
-
-        <!-- Delete group: shown only to the group's creator -->
-        <FrameLayout
+        <!-- Shown only to the group's creator (the only person the server lets delete it). -->
+        <ImageView
+            android:id="@+id/btnDeleteGroup"
             android:layout_width="44dp"
-            android:layout_height="44dp">
+            android:layout_height="44dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="מחק קבוצה"
+            android:focusable="true"
+            android:padding="10dp"
+            android:src="@drawable/ic_trash"
+            android:visibility="gone" />
+    </LinearLayout>
 
-            <com.google.android.material.card.MaterialCardView
-                android:id="@+id/btnDeleteGroup"
-                android:layout_width="44dp"
-                android:layout_height="44dp"
-                android:clickable="true"
-                android:focusable="true"
-                android:outlineSpotShadowColor="@color/home_shadow"
-                android:visibility="gone"
-                app:cardBackgroundColor="@color/white"
-                app:cardCornerRadius="22dp"
-                app:cardElevation="4dp"
-                app:strokeWidth="0dp"
-                tools:visibility="visible">
+    <ProgressBar
+        android:id="@+id/progressLoad"
+        style="?android:attr/progressBarStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="48dp"
+        android:indeterminateTint="@color/home_primary"
+        android:visibility="gone" />
 
-                <ImageView
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:contentDescription="מחק קבוצה"
-                    android:src="@drawable/ic_delete" />
-            </com.google.android.material.card.MaterialCardView>
+    <LinearLayout
+        android:id="@+id/errorGroup"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:gravity="center_horizontal"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:visibility="gone">
 
-            <ProgressBar
-                android:id="@+id/progressDeleteGroup"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:layout_gravity="center"
-                android:indeterminate="true"
-                android:indeterminateTint="@color/home_primary"
-                android:visibility="gone" />
-        </FrameLayout>
+        <TextView
+            android:id="@+id/tvError"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:textColor="@color/home_negative"
+            android:textSize="15sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnRetry"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="נסי שוב"
+            app:backgroundTint="@color/home_primary" />
     </LinearLayout>
 
     <androidx.core.widget.NestedScrollView
+        android:id="@+id/contentScroll"
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
         android:clipToPadding="false"
-        android:fillViewport="true">
+        android:visibility="gone">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -132,28 +131,61 @@
             android:paddingHorizontal="24dp"
             android:paddingBottom="16dp">
 
-            <ProgressBar
-                android:id="@+id/progressLoad"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_horizontal"
-                android:layout_marginTop="24dp"
-                android:indeterminateTint="@color/home_primary" />
-
-            <TextView
-                android:id="@+id/tvError"
+            <!-- Group balance card -->
+            <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:textAlignment="viewStart"
-                android:textColor="@color/home_negative"
-                android:textSize="14sp"
-                android:visibility="gone" />
+                android:background="@drawable/bg_balance_card"
+                android:clipToOutline="true"
+                android:elevation="6dp"
+                android:outlineSpotShadowColor="@color/home_shadow">
+
+                <View
+                    android:layout_width="150dp"
+                    android:layout_height="150dp"
+                    android:layout_gravity="top|start"
+                    android:layout_marginStart="-40dp"
+                    android:layout_marginTop="-50dp"
+                    android:background="@drawable/bg_circle_translucent" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="המאזן שלך בקבוצה"
+                        android:textColor="#CCFFFFFF"
+                        android:textSize="14sp" />
+
+                    <TextView
+                        android:id="@+id/tvGroupBalance"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:textColor="@color/white"
+                        android:textSize="38sp"
+                        android:textStyle="bold"
+                        tools:text="+₪300.00" />
+
+                    <TextView
+                        android:id="@+id/tvBalanceError"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/white"
+                        android:textSize="13sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </FrameLayout>
 
             <!-- Members -->
             <TextView
                 style="@style/CreateGroupSectionTitle"
-                android:layout_marginTop="8dp"
+                android:layout_marginTop="22dp"
                 android:text="חברי הקבוצה" />
 
             <com.google.android.material.card.MaterialCardView
@@ -166,19 +198,12 @@
                 app:cardElevation="4dp"
                 app:strokeWidth="0dp">
 
-                <HorizontalScrollView
+                <LinearLayout
+                    android:id="@+id/membersList"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:overScrollMode="never"
-                    android:scrollbars="none">
-
-                    <LinearLayout
-                        android:id="@+id/membersRow"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:orientation="horizontal"
-                        android:padding="14dp" />
-                </HorizontalScrollView>
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp" />
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Expenses -->
@@ -186,6 +211,16 @@
                 style="@style/CreateGroupSectionTitle"
                 android:layout_marginTop="22dp"
                 android:text="הוצאות" />
+
+            <TextView
+                android:id="@+id/tvExpensesError"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:textAlignment="viewStart"
+                android:textColor="@color/home_negative"
+                android:textSize="14sp"
+                android:visibility="gone" />
 
             <TextView
                 android:id="@+id/tvEmptyExpenses"

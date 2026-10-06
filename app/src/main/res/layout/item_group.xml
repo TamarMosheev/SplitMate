@@ -58,31 +58,18 @@
                 android:textStyle="bold"
                 tools:text="שם הקבוצה" />
 
-            <!-- Delete: shown only to the group's creator (see GroupAdapter) -->
-            <FrameLayout
+            <!-- Shown only to the group's creator (the only person the server lets delete it). -->
+            <ImageView
+                android:id="@+id/ivDeleteGroup"
                 android:layout_width="40dp"
-                android:layout_height="40dp">
-
-                <ImageButton
-                    android:id="@+id/btnDeleteGroup"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="מחק קבוצה"
-                    android:padding="8dp"
-                    android:src="@drawable/ic_delete"
-                    android:visibility="gone"
-                    tools:visibility="visible" />
-
-                <ProgressBar
-                    android:id="@+id/progressDeleteGroup"
-                    android:layout_width="22dp"
-                    android:layout_height="22dp"
-                    android:layout_gravity="center"
-                    android:indeterminate="true"
-                    android:indeterminateTint="@color/home_primary"
-                    android:visibility="gone" />
-            </FrameLayout>
+                android:layout_height="40dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:clickable="true"
+                android:contentDescription="מחק קבוצה"
+                android:focusable="true"
+                android:padding="9dp"
+                android:src="@drawable/ic_trash"
+                android:visibility="gone" />
         </LinearLayout>
 
         <LinearLayout

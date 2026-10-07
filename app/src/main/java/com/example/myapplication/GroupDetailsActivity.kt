@@ -17,6 +17,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityGroupDetailsBinding
 import com.example.myapplication.databinding.ItemGroupMemberBinding
+import com.example.myapplication.ui.balance.BalanceNavigation
 import com.example.myapplication.ui.balance.formatMoney
 import com.example.myapplication.ui.balance.formatSignedMoney
 import com.example.myapplication.ui.expense.AddExpenseViewModel
@@ -62,6 +63,7 @@ class GroupDetailsActivity : AppCompatActivity() {
 
         // The same real groupId this screen was opened with goes straight to Add Expense.
         val groupId = intent.getStringExtra(GroupDetailsViewModel.EXTRA_GROUP_ID).orEmpty()
+        binding.groupBalanceCard.setOnClickListener { BalanceNavigation.openMyBalance(this) }
         binding.btnAddExpense.setOnClickListener {
             startActivity(
                 Intent(this, AddExpenseActivity::class.java)

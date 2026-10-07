@@ -42,6 +42,9 @@
             android:name=".NotificationsActivity"
             android:exported="false" />
         <activity
+            android:name=".DebtListActivity"
+            android:exported="false" />
+        <activity
             android:name=".DebtDetailsActivity"
             android:exported="false" />
         <activity

@@ -131,8 +131,11 @@
             android:paddingHorizontal="24dp"
             android:paddingBottom="16dp">
 
-            <!-- Group balance card -->
+            <!-- Group balance card (opens the canonical My Balance screen) -->
             <FrameLayout
+                android:id="@+id/groupBalanceCard"
+                android:clickable="true"
+                android:focusable="true"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:background="@drawable/bg_balance_card"

@@ -141,6 +141,24 @@ class BalanceRepository(
         )
     }
 
+    /**
+     * The signed-in user's overall balance: the sum of their entry in GET /groups/{id}/balances over
+     * [groupIds]. Shared with Home so both show the same number. A failing group is logged and skipped;
+     * null when there are groups but every balance request failed.
+     */
+    suspend fun loadOverallBalance(groupIds: List<String>): BigDecimal? {
+        val uid = authRepository.currentUser?.uid ?: return null
+        if (groupIds.isEmpty()) return BigDecimal.ZERO
+        val results = coroutineScope {
+            groupIds.map { id ->
+                async { call("balances", id) { apiService.getGroupBalances(id)[uid] ?: BigDecimal.ZERO }.first }
+            }.awaitAll()
+        }
+        val ok = results.filterNotNull()
+        if (ok.isEmpty()) return null
+        return ok.fold(BigDecimal.ZERO, BigDecimal::add)
+    }
+
     private class OpenSettlement(
         val group: Group,
         val settlementId: String,

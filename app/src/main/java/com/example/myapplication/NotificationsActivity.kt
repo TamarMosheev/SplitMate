@@ -16,7 +16,7 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.ui.notifications.SwipeToDeleteCallback
 import com.example.myapplication.databinding.ActivityNotificationsBinding
-import com.example.myapplication.ui.balance.DebtDetailsViewModel
+import com.example.myapplication.ui.balance.BalanceNavigation
 import com.example.myapplication.ui.notifications.NotificationAdapter
 import com.example.myapplication.ui.notifications.NotificationsUiState
 import com.example.myapplication.ui.notifications.NotificationsViewModel
@@ -71,11 +71,7 @@ class NotificationsActivity : AppCompatActivity() {
                 }
                 launch {
                     viewModel.openDebt.collect { debt ->
-                        startActivity(
-                            Intent(this@NotificationsActivity, DebtDetailsActivity::class.java)
-                                .putExtra(DebtDetailsViewModel.EXTRA_GROUP_ID, debt.groupId)
-                                .putExtra(DebtDetailsViewModel.EXTRA_SETTLEMENT_ID, debt.settlementId)
-                        )
+                        BalanceNavigation.openDebtDetails(this@NotificationsActivity, debt.groupId, debt.settlementId)
                     }
                 }
             }

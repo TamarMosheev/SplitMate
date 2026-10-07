@@ -21,7 +21,7 @@ import androidx.credentials.CredentialManager
 import com.example.myapplication.databinding.ActivityHomeBinding
 import com.example.myapplication.repository.AuthRepository
 import com.example.myapplication.ui.expense.AddExpenseViewModel
-import com.example.myapplication.ui.group.GroupDetailsViewModel
+import com.example.myapplication.ui.balance.BalanceNavigation
 import com.example.myapplication.ui.group.confirmDeleteGroup
 import com.example.myapplication.ui.home.GroupAdapter
 import com.example.myapplication.ui.home.GroupItemUi
@@ -62,7 +62,7 @@ class HomeActivity : AppCompatActivity() {
         }
         binding.btnLogout.setOnClickListener { confirmLogout() }
         binding.balanceCard.setOnClickListener {
-            startActivity(Intent(this, MyBalanceActivity::class.java))
+            BalanceNavigation.openMyBalance(this)
         }
         binding.btnNewExpense.setOnClickListener { openNewExpense() }
         binding.fabAdd.setOnClickListener {
@@ -134,10 +134,7 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun startGroupDetails(groupId: String) {
-        startActivity(
-            Intent(this, GroupDetailsActivity::class.java)
-                .putExtra(GroupDetailsViewModel.EXTRA_GROUP_ID, groupId)
-        )
+        BalanceNavigation.openGroupDetails(this, groupId)
     }
 
     private fun startAddExpense(groupId: String) {

@@ -177,8 +177,11 @@
                 android:orientation="horizontal">
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardOwedToMe"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
                     android:outlineSpotShadowColor="@color/home_shadow"
@@ -213,8 +216,11 @@
                 </com.google.android.material.card.MaterialCardView>
 
                 <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/cardOwedByMe"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:clickable="true"
+                    android:focusable="true"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
                     android:outlineSpotShadowColor="@color/home_shadow"

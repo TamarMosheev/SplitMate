@@ -1,11 +1,8 @@
 package com.example.myapplication
 
-import android.content.Intent
 import android.os.Bundle
-import com.example.myapplication.ui.balance.DebtDetailsViewModel
 import android.widget.Toast
 import com.example.myapplication.ui.balance.GroupBalanceUi
-import com.example.myapplication.ui.group.GroupDetailsViewModel
 import com.example.myapplication.ui.group.confirmDeleteGroup
 import android.view.View
 import androidx.activity.viewModels
@@ -18,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityMyBalanceBinding
+import com.example.myapplication.ui.balance.BalanceNavigation
 import com.example.myapplication.ui.balance.DebtAdapter
 import com.example.myapplication.ui.balance.GroupBalanceAdapter
 import com.example.myapplication.ui.balance.MyBalanceContent
@@ -32,20 +30,11 @@ class MyBalanceActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMyBalanceBinding
     private val viewModel: MyBalanceViewModel by viewModels()
     private val debtAdapter = DebtAdapter { debt ->
-        startActivity(
-            Intent(this, DebtDetailsActivity::class.java)
-                .putExtra(DebtDetailsViewModel.EXTRA_GROUP_ID, debt.groupId)
-                .putExtra(DebtDetailsViewModel.EXTRA_SETTLEMENT_ID, debt.settlementId)
-        )
+        BalanceNavigation.openDebtDetails(this, debt.groupId, debt.settlementId)
     }
     // Only the real groupId is passed; the details screen loads everything fresh from the backend.
     private val groupAdapter = GroupBalanceAdapter(
-        onGroupClick = { group ->
-            startActivity(
-                Intent(this, GroupDetailsActivity::class.java)
-                    .putExtra(GroupDetailsViewModel.EXTRA_GROUP_ID, group.id)
-            )
-        },
+        onGroupClick = { group -> BalanceNavigation.openGroupDetails(this, group.id) },
         // The shared confirmation; the delete itself runs in the ViewModel's shared GroupDeleter.
         onDeleteClick = { group -> confirmDeleteGroup(this) { viewModel.deleteGroup(group) } }
     )
@@ -68,6 +57,8 @@ class MyBalanceActivity : AppCompatActivity() {
 
         binding.btnBack.setOnClickListener { finish() }
         binding.btnRetry.setOnClickListener { viewModel.load() }
+        binding.cardOwedToMe.setOnClickListener { BalanceNavigation.openDebtList(this, owedToMe = true) }
+        binding.cardOwedByMe.setOnClickListener { BalanceNavigation.openDebtList(this, owedToMe = false) }
         binding.rvDebts.layoutManager = LinearLayoutManager(this)
         binding.rvDebts.adapter = debtAdapter
         binding.rvGroupBalances.layoutManager = LinearLayoutManager(this)

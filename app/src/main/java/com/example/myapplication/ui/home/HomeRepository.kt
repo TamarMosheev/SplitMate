@@ -5,6 +5,7 @@ import com.example.myapplication.data.api.ApiErrorMapper
 import com.example.myapplication.data.api.ApiService
 import com.example.myapplication.data.api.RetrofitClient
 import com.example.myapplication.repository.AuthRepository
+import com.example.myapplication.repository.BalanceRepository
 import com.example.myapplication.ui.group.canDeleteGroup
 import com.example.myapplication.ui.group.logGroupDeleteDebug
 import com.example.myapplication.utils.Resource
@@ -36,7 +37,8 @@ import kotlinx.coroutines.tasks.await
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeRepository(
     private val authRepository: AuthRepository = AuthRepository(),
-    private val apiService: ApiService = RetrofitClient.apiService
+    private val apiService: ApiService = RetrofitClient.apiService,
+    private val balanceRepository: BalanceRepository = BalanceRepository()
 ) {
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
@@ -105,37 +107,7 @@ class HomeRepository(
         }
         // Show the groups right away, then fill in the overall balance when the requests finish.
         emit(Resource.Success(GroupsSnapshot(items, balance = null, balanceLoading = true)))
-        emit(Resource.Success(GroupsSnapshot(items, loadOverallBalance(groups.map { it.id }), balanceLoading = false)))
-    }
-
-    /**
-     * Sums the signed-in user's balance over GET /groups/{id}/balances for every group.
-     * The user's uid is looked up in each returned map (missing = 0). A failing group is logged and skipped.
-     * Returns null when there are groups but every balance request failed (nothing trustworthy to show).
-     */
-    private suspend fun loadOverallBalance(groupIds: List<String>): BigDecimal? {
-        val uid = authRepository.currentUser?.uid ?: return null
-        if (groupIds.isEmpty()) return BigDecimal.ZERO
-        val results = coroutineScope {
-            groupIds.map { id ->
-                async {
-                    try {
-                        (apiService.getGroupBalances(id)[uid] ?: BigDecimal.ZERO).also {
-                            Log.d(TAG, "Balance for group $id: $it")
-                        }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        val detail = (e as? HttpException)?.code()?.toString() ?: e.javaClass.simpleName
-                        Log.e(TAG, "GET /groups/$id/balances failed ($detail): ${ApiErrorMapper.message(e)}", e)
-                        null
-                    }
-                }
-            }.awaitAll()
-        }
-        val ok = results.filterNotNull()
-        if (ok.isEmpty()) return null
-        return ok.fold(BigDecimal.ZERO, BigDecimal::add)
+        emit(Resource.Success(GroupsSnapshot(items, balanceRepository.loadOverallBalance(groups.map { it.id }), balanceLoading = false)))
     }
 
     private data class GroupsSnapshot(

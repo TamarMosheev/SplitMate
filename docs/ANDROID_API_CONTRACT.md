@@ -22,7 +22,7 @@ It describes the API exactly as implemented and tested (see [Verification status
 | Topic | Rule |
 |---|---|
 | **Base URL** | Local development: `http://127.0.0.1:8000`. Android **emulator**: `http://10.0.2.2:8000`. A **physical phone** needs the PC's LAN IP and the server started with `--host 0.0.0.0` (it binds to 127.0.0.1 only by default). |
-| **Authentication** | Every endpoint except `GET /` needs `Authorization: Bearer <Firebase ID token>`. Get the token with `FirebaseAuth.getInstance().currentUser.getIdToken(false)` (the SDK caches it and refreshes it when it expires, so call it before each request). |
+| **Authentication** | Every endpoint except `GET /` and the public `/auth/password-reset/*` ones (§3.14) needs `Authorization: Bearer <Firebase ID token>`. Get the token with `FirebaseAuth.getInstance().currentUser.getIdToken(false)` (the SDK caches it and refreshes it when it expires, so call it before each request). |
 | **Request body** | JSON, UTF-8, with `Content-Type: application/json`. Only the endpoints that take a body need it. |
 | **Response body** | JSON, UTF-8 (`application/json`). Hebrew text and emoji are sent as normal UTF-8. |
 | **Error body** | `{"detail": "<message>"}`. Validation errors (422) use `{"detail": [{"type": "...", "loc": [...], "msg": "...", "input": ...}]}`. |
@@ -1010,6 +1010,79 @@ The **creditor** says the payment was not received. The settlement stays `open`,
 
 ---
 
+### 3.14 Password reset (public, no `Authorization` header)
+
+Flow: **request code → verify code → complete**. Emails are sent with Resend. These endpoints are public (besides `GET /`) because the user is logged out.
+
+| Setting | Value |
+|---|---|
+| Code | 6 digits, expires after **10 minutes** |
+| Failed attempts | max **5** per code, then `429` until a new code is requested |
+| Resend cooldown | **60 seconds** between sends per email |
+| Reset token | valid **10 minutes**, single use |
+| Password policy | 8–128 characters, at least one letter and one number |
+
+Emails are case-insensitive and trimmed. Only accounts that sign in with email/password can reset this way.
+
+#### Request a code — `POST /auth/password-reset/request`
+
+```json
+{ "email": "user@example.com" }
+```
+
+`200` (always the same body, whether or not the account exists):
+
+```json
+{ "success": true, "message": "If the account exists, a verification code was sent." }
+```
+
+| Status | When |
+|---|---|
+| 400 | `Invalid email address` |
+| 429 | Another code was requested < 60 s ago. `detail`: `Please wait N seconds before requesting another code`, plus a `Retry-After` header. Returned identically for unknown emails. |
+| 500 | `Password reset is temporarily unavailable` (email provider not configured on the server) |
+
+#### Resend — `POST /auth/password-reset/resend`
+
+Same body, responses and rules as `/request`. Generates a **new** code; the previous code stops working immediately and the attempt counter resets. Show a 60-second countdown before enabling "send again".
+
+#### Verify the code — `POST /auth/password-reset/verify`
+
+```json
+{ "email": "user@example.com", "code": "123456" }
+```
+
+`200`:
+
+```json
+{ "verified": true, "resetToken": "<opaque string>" }
+```
+
+Keep `resetToken` in memory only; it is the sole authorization for the next step.
+
+| Status | When |
+|---|---|
+| 400 | `Invalid or expired verification code` (wrong, expired, already used, or no request: deliberately not distinguished) |
+| 429 | `Too many failed attempts. Request a new code.` |
+
+#### Set the new password — `POST /auth/password-reset/complete`
+
+```json
+{ "resetToken": "<from verify>", "newPassword": "NewPass456" }
+```
+
+`200`: `{ "success": true }`. The user's other sessions are signed out; sign in with the new password.
+
+| Status | When |
+|---|---|
+| 400 | Policy: `Password must be at least 8 characters long` / `...at least one letter` / `...at least one number` / `...at most 128 characters long`. The token is **not** consumed, so the user can retry. |
+| 401 | `Invalid or expired reset token` (unknown, expired, or already used) |
+| 409 | `This reset token was already used` (only when two requests race) |
+
+`404` is not used by this flow. Missing JSON fields return `422` as usual.
+
+---
+
 ## 4. Data types
 
 ### 4.1 Settlement
@@ -1093,6 +1166,9 @@ All four types use the same fields, the same list, the same unread count and the
 | `DELETE /groups/{group_id}` | 200 | 401, 403, 404 |
 | `GET /groups/{group_id}/expenses` | 200 | 401, 403, 404 |
 | `POST /groups/{group_id}/expenses` | 200 | 400, 401, 403, 404, 422 |
+| `POST /auth/password-reset/request` and `/resend` | 200 | 400, 429, 500 |
+| `POST /auth/password-reset/verify` | 200 | 400, 429 |
+| `POST /auth/password-reset/complete` | 200 | 400, 401, 409 |
 | `GET /` | 200 | – |
 
 Any `5xx` is a server problem: show a generic error and allow retry.

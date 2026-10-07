@@ -15,7 +15,10 @@ data class DebtUi(
     val amount: BigDecimal,
     val groupName: String,
     /** True: the other person owes the signed-in user (`to == me`). False: the signed-in user owes them. */
-    val owedToMe: Boolean
+    val owedToMe: Boolean,
+    val groupIcon: String? = null,
+    /** The debtor already reported payment and the creditor has not confirmed yet (server `hasCurrentClaim`). */
+    val claimPending: Boolean = false
 )
 
 data class GroupBalanceUi(

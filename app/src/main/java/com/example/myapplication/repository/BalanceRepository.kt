@@ -96,7 +96,7 @@ class BalanceRepository(
                 val to = t.to ?: return@mapNotNull null
                 val amount = t.amount ?: return@mapNotNull null
                 if (!t.isOpen || amount.signum() <= 0 || (from != uid && to != uid)) null
-                else OpenSettlement(r.group, id, if (to == uid) from else to, amount, owedToMe = to == uid)
+                else OpenSettlement(r.group, id, if (to == uid) from else to, amount, owedToMe = to == uid, claimPending = t.hasCurrentClaim)
             }
         }
         val names = UserNameResolver.resolve(open.map { it.otherUid }.toSet())
@@ -110,7 +110,9 @@ class BalanceRepository(
                 otherName = names[it.otherUid],
                 amount = it.amount,
                 groupName = it.group.name,
-                owedToMe = it.owedToMe
+                owedToMe = it.owedToMe,
+                groupIcon = it.group.icon.takeIf { i -> i.isNotBlank() },
+                claimPending = it.claimPending
             )
         }.sortedByDescending { it.amount }
 
@@ -164,7 +166,8 @@ class BalanceRepository(
         val settlementId: String,
         val otherUid: String,
         val amount: BigDecimal,
-        val owedToMe: Boolean
+        val owedToMe: Boolean,
+        val claimPending: Boolean
     )
 
     /**

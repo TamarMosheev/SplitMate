@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.os.Bundle
 import android.view.View
+import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -26,9 +27,10 @@ class DebtListActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDebtListBinding
     private val viewModel: DebtListViewModel by viewModels()
-    private val adapter = DebtAdapter { debt ->
-        BalanceNavigation.openDebtDetails(this, debt.groupId, debt.settlementId)
-    }
+    private val adapter = DebtAdapter(
+        onDebtClick = { debt -> BalanceNavigation.openDebtDetails(this, debt.groupId, debt.settlementId) },
+        onClaimClick = { debt -> viewModel.claimPayment(debt) }
+    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +54,12 @@ class DebtListActivity : AppCompatActivity() {
         binding.rvDebts.adapter = adapter
 
         lifecycleScope.launch {
-            repeatOnLifecycle(Lifecycle.State.STARTED) { viewModel.state.collect(::render) }
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { viewModel.state.collect(::render) }
+                launch {
+                    viewModel.messages.collect { Toast.makeText(this@DebtListActivity, it, Toast.LENGTH_LONG).show() }
+                }
+            }
         }
     }
 

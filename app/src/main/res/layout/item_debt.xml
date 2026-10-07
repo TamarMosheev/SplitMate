@@ -59,12 +59,43 @@
                 tools:text="דירה" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/tvDebtAmount"
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            tools:text="₪120.00" />
+            android:gravity="end"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/tvDebtAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                tools:text="₪120.00" />
+
+            <TextView
+                android:id="@+id/tvDebtStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:textColor="@color/home_muted"
+                android:textSize="12sp"
+                android:visibility="gone"
+                tools:text="ממתין לאישור" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnClaim"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:layout_marginTop="6dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:paddingHorizontal="12dp"
+                android:text="סימנתי ששילמתי"
+                android:textSize="12sp"
+                android:visibility="gone"
+                app:backgroundTint="@color/home_primary" />
+        </LinearLayout>
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

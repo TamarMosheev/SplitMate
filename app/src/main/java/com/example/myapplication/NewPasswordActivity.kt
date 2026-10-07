@@ -20,15 +20,14 @@ import com.example.myapplication.utils.Resource
 import kotlinx.coroutines.launch
 
 /**
- * Sets a new password using the Firebase reset code (oobCode) passed in [EXTRA_OOB_CODE].
- * The code comes from the password-reset email link; until the app handles that link
- * (custom action URL / deep link), launching without a code reports an invalid link.
+ * Last reset step: sets the new password with the resetToken that /verify returned ([EXTRA_RESET_TOKEN]).
+ * The token is only passed in memory through the Intent; it is never stored or logged.
  */
 class NewPasswordActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityNewPasswordBinding
     private val viewModel: NewPasswordViewModel by viewModels()
-    private val oobCode: String? by lazy { intent.getStringExtra(EXTRA_OOB_CODE) }
+    private val resetToken: String? by lazy { intent.getStringExtra(EXTRA_RESET_TOKEN) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,7 +51,7 @@ class NewPasswordActivity : AppCompatActivity() {
 
     private fun submit() {
         viewModel.updatePassword(
-            oobCode = oobCode,
+            resetToken = resetToken,
             password = binding.etNewPassword.text?.toString().orEmpty(),
             confirm = binding.etConfirmPassword.text?.toString().orEmpty()
         )
@@ -98,7 +97,7 @@ class NewPasswordActivity : AppCompatActivity() {
                                 viewModel.clearUpdateState()
                                 startActivity(
                                     Intent(this@NewPasswordActivity, MainActivity::class.java)
-                                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
                                 )
                                 finish()
                             }
@@ -119,6 +118,6 @@ class NewPasswordActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val EXTRA_OOB_CODE = "extra_oob_code"
+        const val EXTRA_RESET_TOKEN = "extra_reset_token"
     }
 }

@@ -27,6 +27,10 @@
             android:name=".NewPasswordActivity"
             android:exported="false" />
         <activity
+            android:name=".VerifyCodeActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".ForgotPasswordActivity"
             android:exported="false" />
         <activity

@@ -1,5 +1,6 @@
 package com.example.myapplication
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.View
 import android.view.inputmethod.EditorInfo
@@ -14,14 +15,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.myapplication.databinding.ActivityForgotPasswordBinding
-import com.example.myapplication.ui.auth.LoginViewModel
-import com.example.myapplication.utils.Resource
+import com.example.myapplication.ui.auth.ForgotPasswordEvent
+import com.example.myapplication.ui.auth.ForgotPasswordViewModel
 import kotlinx.coroutines.launch
 
 class ForgotPasswordActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityForgotPasswordBinding
-    private val viewModel: LoginViewModel by viewModels()
+    private val viewModel: ForgotPasswordViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -44,7 +45,7 @@ class ForgotPasswordActivity : AppCompatActivity() {
     }
 
     private fun submit() {
-        viewModel.sendPasswordReset(binding.etResetEmail.text?.toString().orEmpty())
+        viewModel.sendCode(binding.etResetEmail.text?.toString().orEmpty())
     }
 
     private fun applyWindowInsets() {
@@ -64,35 +65,22 @@ class ForgotPasswordActivity : AppCompatActivity() {
     private fun observeViewModel() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { viewModel.emailError.collect { binding.tilResetEmail.error = it } }
                 launch {
-                    viewModel.resetEmailError.collect { binding.tilResetEmail.error = it }
-                }
-
-                launch {
-                    viewModel.passwordResetState.collect { state ->
-                        val loading = state is Resource.Loading
+                    viewModel.busy.collect { loading ->
                         binding.progressReset.visibility = if (loading) View.VISIBLE else View.GONE
                         binding.btnSendLink.isEnabled = !loading
-
-                        when (state) {
-                            is Resource.Success -> {
-                                Toast.makeText(
-                                    this@ForgotPasswordActivity,
-                                    "נשלח אלייך מייל לאיפוס הסיסמה",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                binding.etResetEmail.text?.clear()
-                                viewModel.clearPasswordResetState()
-                            }
-                            is Resource.Error -> {
-                                Toast.makeText(
-                                    this@ForgotPasswordActivity,
-                                    state.message,
-                                    Toast.LENGTH_LONG
-                                ).show()
-                                viewModel.clearPasswordResetState()
-                            }
-                            else -> Unit
+                    }
+                }
+                launch {
+                    viewModel.events.collect { event ->
+                        when (event) {
+                            is ForgotPasswordEvent.CodeSent -> startActivity(
+                                Intent(this@ForgotPasswordActivity, VerifyCodeActivity::class.java)
+                                    .putExtra(VerifyCodeActivity.EXTRA_EMAIL, event.email)
+                            )
+                            is ForgotPasswordEvent.Message ->
+                                Toast.makeText(this@ForgotPasswordActivity, event.text, Toast.LENGTH_LONG).show()
                         }
                     }
                 }

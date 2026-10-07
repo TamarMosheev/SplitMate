@@ -20,6 +20,22 @@ object RetrofitClient {
             .build()
     }
 
+    /** Same backend, but no bearer interceptor: password reset happens while signed out. */
+    val passwordResetApi: PasswordResetApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(ApiConfig.BASE_URL)
+            .client(
+                OkHttpClient.Builder()
+                    .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+                    .connectTimeout(10, TimeUnit.SECONDS)
+                    .readTimeout(15, TimeUnit.SECONDS)
+                    .build()
+            )
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(PasswordResetApi::class.java)
+    }
+
     val apiService: ApiService by lazy {
         Retrofit.Builder()
             .baseUrl(ApiConfig.BASE_URL)

@@ -2,7 +2,7 @@ package com.example.myapplication.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myapplication.repository.AuthRepository
+import com.example.myapplication.repository.PasswordResetRepository
 import com.example.myapplication.utils.Resource
 import com.example.myapplication.utils.ValidationUtils
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,8 +15,9 @@ data class NewPasswordErrors(
     val confirmError: String? = null
 )
 
+/** Step 4: POST /auth/password-reset/complete with the resetToken returned by /verify. */
 class NewPasswordViewModel(
-    private val authRepository: AuthRepository = AuthRepository()
+    private val repository: PasswordResetRepository = PasswordResetRepository()
 ) : ViewModel() {
 
     private val _errors = MutableStateFlow(NewPasswordErrors())
@@ -25,10 +26,10 @@ class NewPasswordViewModel(
     private val _updateState = MutableStateFlow<Resource<Unit>?>(null)
     val updateState: StateFlow<Resource<Unit>?> = _updateState.asStateFlow()
 
-    fun updatePassword(oobCode: String?, password: String, confirm: String) {
+    fun updatePassword(resetToken: String?, password: String, confirm: String) {
         if (_updateState.value is Resource.Loading) return
 
-        val passwordError = ValidationUtils.validatePassword(password)
+        val passwordError = ValidationUtils.validateNewPassword(password)
         val confirmError = when {
             confirm.isEmpty() -> "נא להזין אימות סיסמה"
             password != confirm -> "הסיסמאות אינן תואמות"
@@ -37,14 +38,14 @@ class NewPasswordViewModel(
         _errors.value = NewPasswordErrors(passwordError, confirmError)
         if (passwordError != null || confirmError != null) return
 
-        if (oobCode.isNullOrBlank()) {
-            _updateState.value = Resource.Error("קישור האיפוס אינו תקף. בקשו קישור חדש")
+        if (resetToken.isNullOrBlank()) {
+            _updateState.value = Resource.Error("תהליך האיפוס פג תוקף. התחילו מחדש")
             return
         }
 
         _updateState.value = Resource.Loading
         viewModelScope.launch {
-            _updateState.value = authRepository.confirmPasswordReset(oobCode, password)
+            _updateState.value = repository.completeReset(resetToken, password)
         }
     }
 

@@ -440,6 +440,51 @@ Response `200`: `{"status": "ok", "message": "SplitMate backend is running"}`.
 Response `200`: one group object, same shape as an item of [3.1](#31-list-my-groups).
 Status codes: `200`, `401`, `403`, `404`.
 
+#### Search registered users
+
+`GET /users/search?query=<text>` – auth required.
+
+Finds users who are already registered in SplitMate, by a case-insensitive substring of their name or email. `query` must be at least 2 characters (after trimming). At most 20 results, sorted by name. Only public fields are returned (no Firebase/Auth data); `displayName`, `email` and `photoUrl` are omitted when the profile has none.
+
+Response `200`:
+
+```json
+[
+  { "uid": "Xy12AbCdEf34GhIj56Kl", "displayName": "נועה כהן", "email": "noa@example.com" }
+]
+```
+
+Status codes: `200`, `400` (`query must be at least 2 characters`), `401`.
+
+#### Add a member to a group
+
+`POST /groups/{group_id}/members` – auth required.
+
+Body: `{"userId": "<firebase uid of an already-registered user>"}`
+
+- **Who may:** any current member of the group (the server checks that the authenticated uid is in the group's `memberIds`). The creator (`createdBy`) is not special here. `createdBy` is never changed.
+- **Effect:** the uid is added to `memberIds` atomically (Firestore transaction + `ArrayUnion`, the array is never overwritten). Nothing else is written.
+- **History is untouched:** existing expenses keep their `paidBy`, `participantIds` and amounts; settlements and balances do not change. The new member starts at ₪0.00 (they are simply not listed in `GET .../balances` until an expense involves them).
+- **Future expenses:** from now on the new member is a valid `paidBy`/`participantIds` value in `POST /groups/{group_id}/expenses`, with no migration. Refetch the group (`GET /groups/{group_id}`) to get the updated `memberIds`.
+- **Notification:** none is created for the added user (the notification schema is built around settlements; adding a type would change `GET /notifications` for existing clients).
+
+Response `201`: the updated group object (same shape as [3.1](#31-list-my-groups)), e.g.
+
+```json
+{ "id": "aHnBG9OW2xQspSiyOdHO", "name": "חופשה בתאילנד", "createdBy": "8S2Qyuq2tKPfrmoJzJVP8H2eLWf2",
+  "memberIds": ["8S2Qyuq2tKPfrmoJzJVP8H2eLWf2", "iO8Yi3G9xRVpUUAzPNhEfhxXcX92", "Xy12AbCdEf34GhIj56Kl"] }
+```
+
+| Status | When | `detail` |
+|---|---|---|
+| `201` | Member added | – |
+| `400` | `userId` is empty/blank | `userId must not be empty` |
+| `401` | Missing/invalid token | see §1 |
+| `403` | The caller is not a member of the group | `You are not a member of this group` |
+| `404` | No such group, or no registered user with that uid | `Group '<id>' not found` / `User '<uid>' not found` |
+| `409` | The user is already a member | `This user is already a member of the group` |
+| `422` | Body missing or `userId` not a string | validation list (see §1) |
+
 #### Delete a group
 
 `DELETE /groups/{group_id}`
@@ -1164,6 +1209,8 @@ All four types use the same fields, the same list, the same unread count and the
 | `GET /groups/{group_id}/settlements/{settlement_id}/breakdown` | 200 | 401, 403, 404 |
 | `GET /groups/{group_id}` | 200 | 401, 403, 404 |
 | `DELETE /groups/{group_id}` | 200 | 401, 403, 404 |
+| `POST /groups/{group_id}/members` | **201** | 400, 401, 403, 404, 409, 422 |
+| `GET /users/search` | 200 | 400, 401 |
 | `GET /groups/{group_id}/expenses` | 200 | 401, 403, 404 |
 | `POST /groups/{group_id}/expenses` | 200 | 400, 401, 403, 404, 422 |
 | `POST /auth/password-reset/request` and `/resend` | 200 | 400, 429, 500 |

@@ -25,7 +25,7 @@ balance_service = BalanceService(expense_repository, settlement_repository)
 settlement_service = SettlementService(balance_service, settlement_repository)
 expense_service = ExpenseService(expense_repository)
 notification_service = NotificationService(notification_repository, user_repository, settlement_service)
-group_service = GroupService(group_repository, expense_repository, settlement_repository, notification_repository)
+group_service = GroupService(group_repository, expense_repository, settlement_repository, notification_repository, user_repository)
 payment_repository = PaymentRepository(firebase_service)
 payment_service = PaymentService(settlement_service, settlement_repository, payment_repository, user_repository)
 

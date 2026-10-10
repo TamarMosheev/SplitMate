@@ -12,7 +12,7 @@ from dependencies.group_dependencies import (
     payment_service,
     settlement_service,
 )
-from models.group_models import GroupDeleted
+from models.group_models import AddMemberRequest, GroupDeleted
 from models.notification_models import NotificationOut
 from models.settlement_models import (
     MarkPaidRequest,
@@ -26,7 +26,14 @@ from services.notification_service import (
     ReminderNotAllowedError,
     SettlementAlreadyPaidError,
 )
-from services.group_service import GroupNotAllowedError, GroupNotFoundError
+from services.group_service import (
+    AlreadyMemberError,
+    GroupNotAllowedError,
+    GroupNotFoundError,
+    InvalidMemberRequestError,
+    NotAMemberError,
+    UserNotFoundError,
+)
 from services.payment_service import PaymentStateError
 from services.settlement_service import SettlementNotAllowedError, SettlementNotFoundError, StaleSettlementError
 
@@ -41,6 +48,25 @@ def get_groups(uid: str = Depends(get_current_uid)):
 @router.get("/{group_id}")
 def get_group(group: dict = Depends(get_member_group)):
     return group
+
+
+@router.post("/{group_id}/members", status_code=201)
+def add_group_member(group_id: str, body: AddMemberRequest, uid: str = Depends(get_current_uid)):
+    """Add an already-registered user to the group. Any current member may (not only the creator).
+
+    Returns the updated group. 400: empty userId. 403: caller is not a member. 404: no such group or
+    user. 409: the user is already a member. Existing expenses and balances are not changed.
+    """
+    try:
+        return group_service.add_member(group_id, uid, body.userId)
+    except InvalidMemberRequestError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except NotAMemberError as error:
+        raise HTTPException(status_code=403, detail=str(error))
+    except (GroupNotFoundError, UserNotFoundError) as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except AlreadyMemberError as error:
+        raise HTTPException(status_code=409, detail=str(error))
 
 
 @router.delete("/{group_id}", response_model=GroupDeleted)

@@ -186,10 +186,33 @@
             </FrameLayout>
 
             <!-- Members -->
-            <TextView
-                style="@style/CreateGroupSectionTitle"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
                 android:layout_marginTop="22dp"
-                android:text="חברי הקבוצה" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    style="@style/CreateGroupSectionTitle"
+                    android:layout_width="0dp"
+                    android:layout_weight="1"
+                    android:text="חברי הקבוצה" />
+
+                <TextView
+                    android:id="@+id/btnAddMember"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_badge_me"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:paddingHorizontal="14dp"
+                    android:paddingVertical="6dp"
+                    android:text="+ הוסף חבר"
+                    android:textColor="@color/home_primary"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"

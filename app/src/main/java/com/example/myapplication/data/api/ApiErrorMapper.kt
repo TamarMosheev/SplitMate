@@ -5,7 +5,7 @@ import org.json.JSONObject
 import retrofit2.HttpException
 
 /** Which call failed; the same status code means different things for different actions. */
-enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT }
+enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT, ADD_MEMBER }
 
 /** Turns API failures into user-facing (Hebrew) messages. */
 object ApiErrorMapper {
@@ -29,14 +29,16 @@ object ApiErrorMapper {
                 else "הבקשה לא תקינה"
                 401 -> "ההתחברות פגה. התחברו מחדש"
                 403 -> when (action) {
+                    ApiAction.ADD_MEMBER -> "אין לך הרשאה להוסיף חבר לקבוצה"
                     ApiAction.MARK_PAID -> "רק מי שמגיע לו הכסף יכול לסמן חוב כשולם"
                     ApiAction.REMINDER -> "רק מי שמגיע לו הכסף יכול לשלוח תזכורת"
                     ApiAction.CLAIM_PAYMENT, ApiAction.CONFIRM_PAYMENT -> "אין לך הרשאה לבצע פעולה זו"
                     ApiAction.GENERAL -> "אין לכם הרשאה לבצע פעולה זו"
                 }
-                404 -> if (action == ApiAction.GENERAL) "הפריט המבוקש לא נמצא"
+                404 -> if (action == ApiAction.ADD_MEMBER) "המשתמש לא נמצא"
+                else if (action == ApiAction.GENERAL) "הפריט המבוקש לא נמצא"
                 else "החוב השתנה או נסגר. הנתונים רועננו"
-                409 -> when {
+                409 -> if (action == ApiAction.ADD_MEMBER) "המשתמש כבר נמצא בקבוצה" else when {
                     "already pending" in detail -> "כבר עדכנת שהתשלום נשלח. ממתינים לאישור."
                     "no pending payment claim" in detail -> "אין דיווח תשלום שממתין לאישור. הנתונים רועננו"
                     "paid without a payment claim" in detail -> "החוב סומן כשולם ללא דיווח תשלום"
@@ -56,7 +58,8 @@ object ApiErrorMapper {
         e is IOException && (e.message == "NO_TOKEN" || e.message == "TOKEN_FAILED") ->
             "אימות המשתמש נכשל. התחברו מחדש"
         e is IOException ->
-            if (action in isPaymentFlow) "לא ניתן להתחבר לשרת. נסי שוב."
+            if (action == ApiAction.ADD_MEMBER) "לא ניתן להתחבר לשרת"
+            else if (action in isPaymentFlow) "לא ניתן להתחבר לשרת. נסי שוב."
             else "אין חיבור לשרת. בדקו שהטלפון והמחשב באותה רשת ושהשרת פועל"
         else -> "אירעה שגיאה. נסו שוב"
     }

@@ -7,6 +7,7 @@ import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /** Mirrors docs/ANDROID_API_CONTRACT.md. All calls need the Firebase bearer token ([AuthInterceptor]). */
 interface ApiService {
@@ -20,6 +21,14 @@ interface ApiService {
     /** Creator only: permanently deletes the group, its expenses, settlements and notifications. */
     @DELETE("groups/{group_id}")
     suspend fun deleteGroup(@Path("group_id") groupId: String): GroupDeletedResponse
+
+    /** Any current member may add a registered user. 403 not a member, 404 no such user, 409 already a member. */
+    @POST("groups/{group_id}/members")
+    suspend fun addGroupMember(@Path("group_id") groupId: String, @Body body: AddMemberRequest): GroupDto
+
+    /** Registered SplitMate users whose name or email starts with [query], at least 2 characters (the caller is excluded). */
+    @GET("users/search")
+    suspend fun searchUsers(@Query("query") query: String): List<UserSearchDto>
 
     @GET("groups/{group_id}/expenses")
     suspend fun getGroupExpenses(@Path("group_id") groupId: String): List<ExpenseDto>

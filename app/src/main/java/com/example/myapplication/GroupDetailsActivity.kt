@@ -21,6 +21,7 @@ import com.example.myapplication.ui.balance.BalanceNavigation
 import com.example.myapplication.ui.balance.formatMoney
 import com.example.myapplication.ui.balance.formatSignedMoney
 import com.example.myapplication.ui.expense.AddExpenseViewModel
+import com.example.myapplication.ui.group.AddMemberViewModel
 import com.example.myapplication.ui.group.ExpenseAdapter
 import com.example.myapplication.ui.group.GroupDetailsContent
 import com.example.myapplication.ui.group.GroupDetailsUiState
@@ -68,6 +69,14 @@ class GroupDetailsActivity : AppCompatActivity() {
             startActivity(
                 Intent(this, AddExpenseActivity::class.java)
                     .putExtra(AddExpenseViewModel.EXTRA_GROUP_ID, groupId)
+            )
+        }
+
+        // Any current member may add a registered user; the group reloads in onRestart when this returns.
+        binding.btnAddMember.setOnClickListener {
+            startActivity(
+                Intent(this, AddMemberActivity::class.java)
+                    .putExtra(AddMemberViewModel.EXTRA_GROUP_ID, groupId)
             )
         }
 

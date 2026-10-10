@@ -113,7 +113,7 @@ class DebtDetailsActivity : AppCompatActivity() {
         binding.tvBreakdownTitle.text = if (b is Breakdown.Netted) "הוצאות שתרמו למאזן" else "ממה זה מורכב"
         val info = when (b) {
             is Breakdown.Rows -> if (rows.isEmpty()) "אין הוצאות להצגה" else null
-            is Breakdown.Netted -> b.explanation
+            is Breakdown.Netted -> null
             is Breakdown.Unavailable -> b.message
             is Breakdown.Error -> b.message
         }

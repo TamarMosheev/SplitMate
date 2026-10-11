@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -12,7 +12,7 @@ from dependencies.group_dependencies import (
     payment_service,
     settlement_service,
 )
-from models.group_models import AddMemberRequest, GroupDeleted
+from models.group_models import AddMemberRequest, GroupDeleted, UserPublic
 from models.notification_models import NotificationOut
 from models.settlement_models import (
     MarkPaidRequest,
@@ -48,6 +48,12 @@ def get_groups(uid: str = Depends(get_current_uid)):
 @router.get("/{group_id}")
 def get_group(group: dict = Depends(get_member_group)):
     return group
+
+
+@router.get("/{group_id}/members", response_model=List[UserPublic], response_model_exclude_none=True)
+def list_group_members(group: dict = Depends(get_member_group)):
+    """Public profile (uid, displayName, email, avatar) of every member, so all members see the same saved avatars."""
+    return group_service.list_members(group)
 
 
 @router.post("/{group_id}/members", status_code=201)

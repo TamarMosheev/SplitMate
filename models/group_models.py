@@ -2,6 +2,8 @@ from typing import Optional
 
 from pydantic import BaseModel
 
+from models.user_models import Avatar
+
 
 class GroupDeleted(BaseModel):
     success: bool
@@ -19,3 +21,4 @@ class UserPublic(BaseModel):
     displayName: Optional[str] = None
     email: Optional[str] = None
     photoUrl: Optional[str] = None
+    avatar: Avatar

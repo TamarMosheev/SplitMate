@@ -444,17 +444,102 @@ Status codes: `200`, `401`, `403`, `404`.
 
 `GET /users/search?query=<text>` – auth required.
 
-Finds users who are already registered in SplitMate, by a case-insensitive substring of their name or email. `query` must be at least 2 characters (after trimming). At most 20 results, sorted by name. Only public fields are returned (no Firebase/Auth data); `displayName`, `email` and `photoUrl` are omitted when the profile has none.
+Finds users who are already registered in SplitMate, by a case-insensitive substring of their name or email. `query` must be at least 2 characters (after trimming). At most 20 results, sorted by name. Only public fields are returned (no Firebase/Auth data); `displayName`, `email` and `photoUrl` are omitted when the profile has none. `avatar` is **always** present (the saved avatar, or the default one, see [Avatars](#avatars)).
 
 Response `200`:
 
 ```json
 [
-  { "uid": "Xy12AbCdEf34GhIj56Kl", "displayName": "נועה כהן", "email": "noa@example.com" }
+  { "uid": "Xy12AbCdEf34GhIj56Kl", "displayName": "נועה כהן", "email": "noa@example.com",
+    "avatar": { "hairStyle": "hair_2", "faceStyle": "face_1", "glassesEnabled": true,
+                "skinTone": "skin_4", "hairColor": "dark_brown", "backgroundColor": "light_blue" } }
 ]
 ```
 
 Status codes: `200`, `400` (`query must be at least 2 characters`), `401`.
+
+#### Avatars
+
+Every registered user has a persistent, customizable avatar, saved in their existing profile document `users/{uid}` as the `avatar` field:
+
+```json
+"avatar": {
+  "hairStyle": "hair_2", "faceStyle": "face_1", "glassesEnabled": true,
+  "skinTone": "skin_4", "hairColor": "dark_brown", "backgroundColor": "light_blue"
+}
+```
+
+The values are stable **string ids** that the app maps to its own drawables/colors (never store Android resource ids). The app must **not** pick avatars at random: always draw what the server returns, so every member sees the same avatar for the same person.
+
+| Field | Type | Allowed values | Default |
+|---|---|---|---|
+| `hairStyle` | string | `hair_1` … `hair_8` | `hair_1` |
+| `faceStyle` | string | `face_1` … `face_6` | `face_1` |
+| `glassesEnabled` | boolean (strict `true`/`false`) | `true`, `false` | `false` |
+| `skinTone` | string | `skin_1` … `skin_6` | `skin_3` |
+| `hairColor` | string | `black`, `dark_brown`, `brown_1`, `brown_2`, `brown_3`, `blonde`, `red`, `gray` | `brown_2` |
+| `backgroundColor` | string | `light_blue`, `light_green`, `light_pink`, `light_yellow`, `light_purple`, `light_orange`, `light_gray` | `light_blue` |
+
+**Default avatar:** users who never customized theirs (all existing users) get `{"hairStyle":"hair_1","faceStyle":"face_1","glassesEnabled":false,"skinTone":"skin_3","hairColor":"brown_2","backgroundColor":"light_blue"}`. No migration is needed and a read never writes to Firestore. Every response containing a user always has a complete, valid `avatar` object.
+
+#### My profile
+
+`GET /users/me` – auth required. Uses the uid from the Firebase ID token.
+
+Response `200` (`name` / `email` are omitted when the profile has none; no Firebase/Auth data is returned):
+
+```json
+{ "uid": "Xy12AbCdEf34GhIj56Kl", "name": "תמר", "email": "tamar@example.com",
+  "avatar": { "hairStyle": "hair_1", "faceStyle": "face_1", "glassesEnabled": false,
+              "skinTone": "skin_3", "hairColor": "brown_2", "backgroundColor": "light_blue" } }
+```
+
+| Status | When | `detail` |
+|---|---|---|
+| `200` | – | – |
+| `401` | Missing/invalid token | see §1 |
+| `404` | There is no `users/{uid}` document yet (the app creates it at sign-up / `ensureUserProfile`) | `User profile not found` |
+
+#### Update my avatar
+
+`PATCH /users/me/avatar` – auth required.
+
+Body: any **subset** of the avatar fields; omitted fields keep their current value.
+
+```json
+{ "hairStyle": "hair_2", "glassesEnabled": true, "skinTone": "skin_4", "hairColor": "dark_brown" }
+```
+
+- **Only your own:** there is no user id in the path or body; the avatar changed is always the authenticated user's. A `uid` (or any unknown field) in the body is rejected with `422`.
+- **Partial write:** only the `avatar` field of `users/{uid}` is written. `name`, `email`, `photoUrl` and every other field are untouched, and no profile is created if it does not exist. Groups, expenses, balances and settlements are never touched.
+- **Validation:** every value must be in the table above; `glassesEnabled` must be a real boolean; at least one field is required.
+
+Response `200`: the same object as `GET /users/me`, with the full saved avatar.
+
+| Status | When | `detail` |
+|---|---|---|
+| `200` | Avatar saved | – |
+| `401` | Missing/invalid token | see §1 |
+| `404` | No `users/{uid}` document | `User profile not found` |
+| `422` | Invalid value, unknown field, `glassesEnabled` not a boolean, or empty body | validation list (see §1), e.g. `{"loc":["body","hairStyle"],"msg":"Value error, must be one of: hair_1, hair_2, …"}` |
+
+#### List group members (with avatars)
+
+`GET /groups/{group_id}/members` – auth required, caller must be a member.
+
+Returns the public profile of every current member, in `memberIds` order, so member lists and debt rows can show names and the same saved avatar for everyone. `displayName`, `email`, `photoUrl` are omitted when missing; a member without a profile document is still listed (`uid` + default `avatar`). The group objects themselves (`GET /groups`, `GET /groups/{id}`) are unchanged.
+
+```json
+[
+  { "uid": "8S2Qyuq2tKPfrmoJzJVP8H2eLWf2", "displayName": "תמר", "email": "tamar@example.com",
+    "avatar": { "hairStyle": "hair_2", "faceStyle": "face_1", "glassesEnabled": true,
+                "skinTone": "skin_4", "hairColor": "dark_brown", "backgroundColor": "light_blue" } }
+]
+```
+
+Status codes: `200`, `401`, `403` (`You are not a member of this group`), `404` (`Group '<id>' not found`).
+
+**Profile photo from the gallery ("או העלאי תמונה מהגלריה"):** not supported. Users are represented by the generated avatar only. `photoUrl` is returned in public profiles only if a profile document already has one; nothing in this API writes it.
 
 #### Add a member to a group
 
@@ -1211,6 +1296,9 @@ All four types use the same fields, the same list, the same unread count and the
 | `DELETE /groups/{group_id}` | 200 | 401, 403, 404 |
 | `POST /groups/{group_id}/members` | **201** | 400, 401, 403, 404, 409, 422 |
 | `GET /users/search` | 200 | 400, 401 |
+| `GET /users/me` | 200 | 401, 404 |
+| `PATCH /users/me/avatar` | 200 | 401, 404, 422 |
+| `GET /groups/{group_id}/members` | 200 | 401, 403, 404 |
 | `GET /groups/{group_id}/expenses` | 200 | 401, 403, 404 |
 | `POST /groups/{group_id}/expenses` | 200 | 400, 401, 403, 404, 422 |
 | `POST /auth/password-reset/request` and `/resend` | 200 | 400, 429, 500 |

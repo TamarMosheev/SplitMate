@@ -111,3 +111,7 @@ class GroupService:
         if len(query) < 2:
             raise InvalidMemberRequestError("query must be at least 2 characters")
         return self._users.search(query, limit)
+
+    def list_members(self, group: dict) -> list:
+        """Public profiles (with avatar) of the group's current members, in memberIds order."""
+        return self._users.get_public_profiles(group.get("memberIds", []))

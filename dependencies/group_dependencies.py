@@ -14,6 +14,7 @@ from services.group_service import GroupService
 from services.notification_service import NotificationService
 from services.payment_service import PaymentService
 from services.settlement_service import SettlementService
+from services.user_service import UserService
 
 # Shared instances, wired once: firebase -> repositories -> services.
 group_repository = GroupRepository(firebase_service)
@@ -26,6 +27,7 @@ settlement_service = SettlementService(balance_service, settlement_repository)
 expense_service = ExpenseService(expense_repository)
 notification_service = NotificationService(notification_repository, user_repository, settlement_service)
 group_service = GroupService(group_repository, expense_repository, settlement_repository, notification_repository, user_repository)
+user_service = UserService(user_repository)
 payment_repository = PaymentRepository(firebase_service)
 payment_service = PaymentService(settlement_service, settlement_repository, payment_repository, user_repository)
 

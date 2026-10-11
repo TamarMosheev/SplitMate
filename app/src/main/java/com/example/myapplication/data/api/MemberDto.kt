@@ -6,7 +6,10 @@ data class AddMemberRequest(val userId: String)
 /** One item of GET /users/search. */
 data class UserSearchDto(
     val uid: String? = null,
+    val displayName: String? = null,
+    /** Legacy field name; the contract sends displayName. */
     val name: String? = null,
     val email: String? = null,
-    val photoUrl: String? = null
+    val photoUrl: String? = null,
+    val avatar: AvatarDto? = null
 )

@@ -123,7 +123,7 @@ class DebtDetailsActivity : AppCompatActivity() {
 
     private fun renderContent(c: DebtDetailsContent) {
         val name = c.otherName ?: "משתמש"
-        binding.tvAvatar.text = c.otherName?.trim()?.firstOrNull()?.toString() ?: "?"
+        binding.ivAvatar.setAvatar(c.otherAvatar)
         binding.tvDebtTitle.text = if (c.owedToMe) "$name חייב/ת לך" else "את חייבת ל$name"
         binding.tvDebtAmount.text = formatMoney(c.amount)
         binding.tvDebtAmount.setTextColor(

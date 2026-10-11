@@ -16,5 +16,7 @@ data class Group(
 data class GroupMember(
     val uid: String,
     val name: String,
-    val email: String
+    val email: String,
+    /** The backend avatar (never invented locally); null renders the default avatar. */
+    val avatar: Avatar? = null
 )

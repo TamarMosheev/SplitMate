@@ -60,6 +60,9 @@ class HomeActivity : AppCompatActivity() {
         binding.btnBell.setOnClickListener {
             startActivity(Intent(this, NotificationsActivity::class.java))
         }
+        binding.btnMyAvatar.setOnClickListener {
+            startActivity(Intent(this, AvatarEditorActivity::class.java))
+        }
         binding.btnLogout.setOnClickListener { confirmLogout() }
         binding.balanceCard.setOnClickListener {
             BalanceNavigation.openMyBalance(this)
@@ -79,6 +82,7 @@ class HomeActivity : AppCompatActivity() {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect(::render) }
                 launch { viewModel.unreadCount.collect(::renderBellBadge) }
+                launch { viewModel.myAvatar.collect { binding.ivMyAvatar.setAvatar(it) } }
                 launch { viewModel.deleter.deletingIds.collect { submitGroups() } }
                 launch {
                     viewModel.deleter.events.collect {
@@ -104,6 +108,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         viewModel.refreshUnreadCount()
+        viewModel.refreshMyAvatar()
     }
 
     private fun renderBellBadge(count: Int) {

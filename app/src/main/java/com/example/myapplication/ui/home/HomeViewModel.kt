@@ -2,6 +2,8 @@ package com.example.myapplication.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.myapplication.data.model.Avatar
+import com.example.myapplication.repository.AvatarRepository
 import com.example.myapplication.repository.NotificationRepository
 import com.example.myapplication.ui.group.GroupDeleter
 import com.example.myapplication.utils.Resource
@@ -17,8 +19,21 @@ import kotlinx.coroutines.launch
 
 class HomeViewModel(
     private val repository: HomeRepository = HomeRepository(),
-    private val notificationRepository: NotificationRepository = NotificationRepository()
+    private val notificationRepository: NotificationRepository = NotificationRepository(),
+    private val avatarRepository: AvatarRepository = AvatarRepository()
 ) : ViewModel() {
+
+    /** My saved avatar from GET /users/me; null (default avatar) until loaded or if the request fails. */
+    private val _myAvatar = MutableStateFlow<Avatar?>(null)
+    val myAvatar: StateFlow<Avatar?> = _myAvatar.asStateFlow()
+
+    /** Re-read from the backend whenever Home is shown, so an avatar saved in the editor appears at once. */
+    fun refreshMyAvatar() {
+        viewModelScope.launch {
+            val r = avatarRepository.loadMe()
+            if (r is Resource.Success) _myAvatar.value = r.data.avatar
+        }
+    }
 
     private val _state = MutableStateFlow<HomeUiState>(HomeUiState.Loading)
     val state: StateFlow<HomeUiState> = _state.asStateFlow()

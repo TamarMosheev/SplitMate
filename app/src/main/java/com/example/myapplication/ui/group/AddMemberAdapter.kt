@@ -36,6 +36,7 @@ class AddMemberAdapter(
         val ctx = b.root.context
         b.tvResultName.text = m.name.ifBlank { "משתמש" }
         b.tvResultEmail.text = m.email
+        b.ivResultAvatar.setAvatar(m.avatar)
 
         val already = m.uid in memberIds
         val adding = addingUid == m.uid

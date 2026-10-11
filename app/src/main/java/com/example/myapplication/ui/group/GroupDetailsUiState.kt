@@ -1,5 +1,6 @@
 package com.example.myapplication.ui.group
 
+import com.example.myapplication.data.model.Avatar
 import java.math.BigDecimal
 
 data class MemberBalanceUi(
@@ -8,7 +9,9 @@ data class MemberBalanceUi(
     val name: String?,
     val isMe: Boolean,
     /** Server balance in this group; null if the balances request failed. */
-    val balance: BigDecimal?
+    val balance: BigDecimal?,
+    /** The member's saved avatar from GET /groups/{id}/members; null renders the default avatar. */
+    val avatar: Avatar? = null
 )
 
 /** What one expense row renders. */

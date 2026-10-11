@@ -102,6 +102,7 @@ class ExpenseDetailsActivity : AppCompatActivity() {
         addRow(
             binding.payerHolder,
             name = c.payerName,
+            avatar = c.payerAvatar,
             isMe = c.payerIsMe,
             amountText = null,
             isLast = true
@@ -113,6 +114,7 @@ class ExpenseDetailsActivity : AppCompatActivity() {
             addRow(
                 binding.participantsList,
                 name = p.name,
+                avatar = p.avatar,
                 isMe = p.isMe,
                 amountText = p.share?.let { formatMoney(it) },
                 isLast = i == c.participants.lastIndex
@@ -142,10 +144,17 @@ class ExpenseDetailsActivity : AppCompatActivity() {
     }
 
     /** One avatar + name (+ amount) row; the same row layout the Group Details member list uses. */
-    private fun addRow(parent: ViewGroup, name: String?, isMe: Boolean, amountText: String?, isLast: Boolean) {
+    private fun addRow(
+        parent: ViewGroup,
+        name: String?,
+        avatar: com.example.myapplication.data.model.Avatar?,
+        isMe: Boolean,
+        amountText: String?,
+        isLast: Boolean
+    ) {
         val row = ItemGroupMemberBinding.inflate(LayoutInflater.from(this), parent, false)
         val shown = name ?: "משתמש"
-        row.tvMemberAvatar.text = name?.trim()?.firstOrNull()?.toString() ?: "?"
+        row.ivMemberAvatar.setAvatar(avatar)
         row.tvMemberName.text = if (isMe) "$shown (אני)" else shown
         row.memberDivider.visibility = if (isLast) View.GONE else View.VISIBLE
         if (amountText == null) {

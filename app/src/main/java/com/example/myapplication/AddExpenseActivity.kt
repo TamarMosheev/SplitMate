@@ -106,6 +106,7 @@ class AddExpenseActivity : AppCompatActivity() {
         s.members.forEach { member ->
             val chip = ItemPayerChipBinding.inflate(LayoutInflater.from(this), binding.payerRow, false)
             chip.tvPayerName.text = displayName(member)
+            chip.ivPayerAvatar.setAvatar(member.avatar)
             chip.root.setBackgroundResource(
                 if (member.uid == s.payerId) R.drawable.bg_payer_selected else R.drawable.bg_payer_unselected
             )
@@ -154,6 +155,7 @@ class AddExpenseActivity : AppCompatActivity() {
             val row = ItemExpenseParticipantBinding.inflate(LayoutInflater.from(this), container, false)
             val selected = member.uid in s.participantIds
             row.tvParticipantName.text = displayName(member)
+            row.ivParticipantAvatar.setAvatar(member.avatar)
             row.cbParticipant.isChecked = selected
             row.cbParticipant.setOnCheckedChangeListener { _, _ -> viewModel.onParticipantToggled(member.uid) }
 

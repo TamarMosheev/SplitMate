@@ -5,6 +5,7 @@ import com.example.myapplication.data.api.ApiAction
 import com.example.myapplication.data.api.ApiErrorMapper
 import com.example.myapplication.data.api.RetrofitClient
 import com.example.myapplication.data.model.GroupMember
+import com.example.myapplication.data.model.toAvatar
 import com.example.myapplication.utils.Resource
 import android.util.Log
 import kotlinx.coroutines.CancellationException
@@ -23,7 +24,7 @@ class GroupMembersRepository {
         Log.d(TAG, "GET users/search query='$query'")
         api.searchUsers(query).also { Log.d(TAG, "users/search -> 200, ${it.size} result(s): $it") }.mapNotNull { u ->
             val uid = u.uid?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            GroupMember(uid, u.name.orEmpty(), u.email.orEmpty())
+            GroupMember(uid, (u.displayName ?: u.name).orEmpty(), u.email.orEmpty(), u.avatar.toAvatar())
         }
     }
 

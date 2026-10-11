@@ -8,7 +8,9 @@ data class ParticipantShareUi(
     val name: String?,
     val isMe: Boolean,
     /** The participant's exact share; null when the data does not state it exactly. */
-    val share: BigDecimal?
+    val share: BigDecimal?,
+    /** The participant's saved avatar from the backend; null renders the default avatar. */
+    val avatar: com.example.myapplication.data.model.Avatar? = null
 )
 
 /** The signed-in user's result in this one expense. */
@@ -30,6 +32,7 @@ data class ExpenseDetailsContent(
     val splitLabel: String?,
     val payerName: String?,
     val payerIsMe: Boolean,
+    val payerAvatar: com.example.myapplication.data.model.Avatar? = null,
     val participants: List<ParticipantShareUi>,
     val result: ExpenseResultUi?,
     /** Shown when some shares are not stated exactly by the data. */

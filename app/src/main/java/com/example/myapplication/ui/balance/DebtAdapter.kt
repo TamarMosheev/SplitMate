@@ -30,7 +30,7 @@ class DebtAdapter(
         fun bind(item: DebtUi, canClaim: Boolean) {
             val context = binding.root.context
             val name = item.otherName ?: "משתמש"
-            binding.tvAvatar.text = item.otherName?.trim()?.firstOrNull()?.toString() ?: "?"
+            binding.ivAvatar.setAvatar(item.otherAvatar)
             binding.tvDebtTitle.text = if (item.owedToMe) "$name חייב/ת לך" else "את חייבת ל$name"
             binding.tvDebtGroup.text = listOfNotNull(item.groupIcon, item.groupName).joinToString(" ")
             binding.tvDebtAmount.text = formatMoney(item.amount)

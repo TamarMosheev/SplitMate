@@ -18,7 +18,9 @@ data class DebtUi(
     val owedToMe: Boolean,
     val groupIcon: String? = null,
     /** The debtor already reported payment and the creditor has not confirmed yet (server `hasCurrentClaim`). */
-    val claimPending: Boolean = false
+    val claimPending: Boolean = false,
+    /** The other person's saved avatar from the backend; null renders the default avatar. */
+    val otherAvatar: com.example.myapplication.data.model.Avatar? = null
 )
 
 data class GroupBalanceUi(

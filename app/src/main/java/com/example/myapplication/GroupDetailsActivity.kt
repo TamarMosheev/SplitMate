@@ -164,7 +164,7 @@ class GroupDetailsActivity : AppCompatActivity() {
 
     private fun bindMember(row: ItemGroupMemberBinding, m: MemberBalanceUi, isLast: Boolean) {
         val name = m.name ?: "משתמש"
-        row.tvMemberAvatar.text = m.name?.trim()?.firstOrNull()?.toString() ?: "?"
+        row.ivMemberAvatar.setAvatar(m.avatar)
         row.tvMemberName.text = if (m.isMe) "$name (אני)" else name
         row.memberDivider.visibility = if (isLast) View.GONE else View.VISIBLE
 

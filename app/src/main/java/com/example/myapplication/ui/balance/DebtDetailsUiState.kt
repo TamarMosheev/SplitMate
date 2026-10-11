@@ -56,6 +56,8 @@ data class DebtDetailsContent(
     val groupId: String,
     val settlementId: String,
     val otherName: String?,
+    /** The other person's saved avatar from the backend; null renders the default avatar. */
+    val otherAvatar: com.example.myapplication.data.model.Avatar? = null,
     /** True: the other person owes the signed-in user. */
     val owedToMe: Boolean,
     val amount: BigDecimal,

@@ -124,6 +124,7 @@ class CreateGroupActivity : AppCompatActivity() {
         val row = ItemMemberBinding.inflate(LayoutInflater.from(this), container, false)
         row.tvMemberName.text = member.name.ifBlank { member.email }
         row.tvMemberEmail.text = member.email
+        row.ivMemberAvatar.setAvatar(member.avatar)
         configure(row.tvBadge, row.btnMemberAction)
         container.addView(row.root)
     }

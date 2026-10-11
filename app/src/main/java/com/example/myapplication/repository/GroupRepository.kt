@@ -3,6 +3,7 @@ package com.example.myapplication.repository
 import android.util.Log
 import com.example.myapplication.data.model.GROUPS_COLLECTION
 import com.example.myapplication.data.model.GroupMember
+import com.example.myapplication.data.model.avatarFromProfile
 import com.example.myapplication.utils.Resource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -32,7 +33,8 @@ class GroupRepository(
                     uid = user.uid,
                     name = doc.getString("name")?.takeIf { it.isNotBlank() }
                         ?: user.displayName.orEmpty(),
-                    email = doc.getString("email")?.takeIf { it.isNotBlank() } ?: authEmail
+                    email = doc.getString("email")?.takeIf { it.isNotBlank() } ?: authEmail,
+                    avatar = avatarFromProfile(doc.get("avatar"))
                 )
             )
         } catch (e: Exception) {
@@ -64,7 +66,8 @@ class GroupRepository(
                     GroupMember(
                         uid = doc.id,
                         name = doc.getString("name").orEmpty(),
-                        email = doc.getString("email").orEmpty()
+                        email = doc.getString("email").orEmpty(),
+                        avatar = avatarFromProfile(doc.get("avatar"))
                     )
                 }
             )

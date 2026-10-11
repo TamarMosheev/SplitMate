@@ -11,13 +11,11 @@
     android:orientation="horizontal"
     android:paddingHorizontal="10dp">
 
-    <ImageView
+    <com.example.myapplication.ui.avatar.AvatarView
+        android:id="@+id/ivPayerAvatar"
         android:layout_width="30dp"
         android:layout_height="30dp"
-        android:background="@drawable/bg_avatar"
-        android:importantForAccessibility="no"
-        android:padding="6dp"
-        android:src="@drawable/ic_person" />
+        android:importantForAccessibility="no" />
 
     <TextView
         android:id="@+id/tvPayerName"

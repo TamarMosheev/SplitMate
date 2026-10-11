@@ -20,16 +20,11 @@
         android:orientation="horizontal"
         android:padding="14dp">
 
-        <TextView
-            android:id="@+id/tvAvatar"
+        <com.example.myapplication.ui.avatar.AvatarView
+            android:id="@+id/ivAvatar"
             android:layout_width="42dp"
             android:layout_height="42dp"
-            android:background="@drawable/bg_avatar"
-            android:gravity="center"
-            android:textColor="@color/home_deep"
-            android:textSize="17sp"
-            android:textStyle="bold"
-            tools:text="ד" />
+            android:importantForAccessibility="no" />
 
         <LinearLayout
             android:layout_width="0dp"

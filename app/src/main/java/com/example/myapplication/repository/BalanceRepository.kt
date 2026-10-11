@@ -8,7 +8,9 @@ import com.example.myapplication.data.api.MarkPaidRequest
 import com.example.myapplication.data.api.RetrofitClient
 import com.example.myapplication.data.api.SettlementDto
 import com.example.myapplication.data.api.SettlementResponse
+import com.example.myapplication.data.model.Avatar
 import com.example.myapplication.data.model.Group
+import com.example.myapplication.data.model.toAvatar
 import com.example.myapplication.data.api.BreakdownResponse
 import com.example.myapplication.data.api.ExpenseDto
 import com.example.myapplication.ui.expense.ExpenseDetailsContent
@@ -100,6 +102,9 @@ class BalanceRepository(
             }
         }
         val names = UserNameResolver.resolve(open.map { it.otherUid }.toSet())
+        val avatarsByGroup = coroutineScope {
+            open.map { it.group.id }.distinct().map { id -> async { id to groupAvatars(id) } }.awaitAll().toMap()
+        }
 
         val debts = open.map {
             DebtUi(
@@ -108,6 +113,7 @@ class BalanceRepository(
                 settlementId = it.settlementId,
                 otherUid = it.otherUid,
                 otherName = names[it.otherUid],
+                otherAvatar = avatarsByGroup[it.group.id]?.get(it.otherUid),
                 amount = it.amount,
                 groupName = it.group.name,
                 owedToMe = it.owedToMe,
@@ -187,10 +193,11 @@ class BalanceRepository(
             return Resource.Error(groupErrorMessage(e))
         }
 
-        val (balances, expenses) = coroutineScope {
+        val (balances, expenses, avatars) = coroutineScope {
             val b = async { call("balances", groupId) { apiService.getGroupBalances(groupId) } }
             val x = async { call("expenses", groupId) { apiService.getGroupExpenses(groupId) } }
-            b.await() to x.await()
+            val a = async { groupAvatars(groupId) }
+            Triple(b.await(), x.await(), a.await())
         }
 
         val memberIds = group.memberIds.orEmpty()
@@ -198,7 +205,9 @@ class BalanceRepository(
         val names = UserNameResolver.resolve(memberIds.toSet() + expenseList.mapNotNull { it.paidBy })
 
         val members = memberIds
-            .map { id -> MemberBalanceUi(id, names[id], id == uid, balances.first?.let { it[id] ?: BigDecimal.ZERO }) }
+            .map { id ->
+                MemberBalanceUi(id, names[id], id == uid, balances.first?.let { it[id] ?: BigDecimal.ZERO }, avatars[id])
+            }
             .sortedByDescending { it.isMe } // the signed-in user first
 
         val rows = expenseList
@@ -295,9 +304,10 @@ class BalanceRepository(
         val participants = expense.participantIds.orEmpty().distinct()
         val payerUid = expense.paidBy
         val names = UserNameResolver.resolve(participants.toSet() + setOfNotNull(payerUid))
+        val avatars = groupAvatars(groupId)
 
         val rows = participants
-            .map { ParticipantShareUi(it, names[it], it == uid, shareOf(expense, it)) }
+            .map { ParticipantShareUi(it, names[it], it == uid, shareOf(expense, it), avatars[it]) }
             .sortedByDescending { it.isMe }
         val payerName = payerUid?.let { names[it] }
 
@@ -324,6 +334,7 @@ class BalanceRepository(
                 },
                 payerName = payerName,
                 payerIsMe = payerUid == uid,
+                payerAvatar = payerUid?.let { avatars[it] },
                 participants = rows,
                 result = result,
                 sharesNote = if (rows.any { it.share == null })
@@ -409,11 +420,13 @@ class BalanceRepository(
         }
 
         val names = UserNameResolver.resolve(setOfNotNull(otherUid, s.markedBy))
+        val avatars = groupAvatars(groupId)
         return Resource.Success(
             DebtDetailsContent(
                 groupId = groupId,
                 settlementId = settlementId,
                 otherName = names[otherUid],
+                otherAvatar = avatars[otherUid],
                 owedToMe = owedToMe,
                 amount = amount,
                 isPaid = isPaid,
@@ -517,6 +530,22 @@ class BalanceRepository(
         } catch (e: Exception) {
             Log.e(TAG, "$label failed", e)
             ActionResult.Failure(ApiErrorMapper.message(e, kind), refresh = ApiErrorMapper.isStale(e))
+        }
+
+    /**
+     * uid -> saved avatar for every member of [groupId] (GET /groups/{id}/members), always fresh from the
+     * backend. A failure is logged and returns an empty map: those people then render the default avatar.
+     */
+    private suspend fun groupAvatars(groupId: String): Map<String, Avatar> =
+        try {
+            apiService.getGroupMembers(groupId)
+                .mapNotNull { m -> m.uid?.let { it to m.avatar.toAvatar() } }
+                .toMap()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "GET /groups/$groupId/members failed: ${ApiErrorMapper.message(e)}")
+            emptyMap()
         }
 
     /** Runs one backend call; a failure is logged with the group id and returned instead of thrown. */

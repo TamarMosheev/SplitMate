@@ -119,16 +119,11 @@
                     android:orientation="vertical"
                     android:padding="22dp">
 
-                    <TextView
-                        android:id="@+id/tvAvatar"
+                    <com.example.myapplication.ui.avatar.AvatarView
+                        android:id="@+id/ivAvatar"
                         android:layout_width="64dp"
                         android:layout_height="64dp"
-                        android:background="@drawable/bg_avatar"
-                        android:gravity="center"
-                        android:textColor="@color/home_deep"
-                        android:textSize="26sp"
-                        android:textStyle="bold"
-                        tools:text="ת" />
+                        android:importantForAccessibility="no" />
 
                     <TextView
                         android:id="@+id/tvDebtTitle"

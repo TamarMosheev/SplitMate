@@ -30,6 +30,18 @@ interface ApiService {
     @GET("users/search")
     suspend fun searchUsers(@Query("query") query: String): List<UserSearchDto>
 
+    /** Public profile (name, avatar) of every current member, in memberIds order. 403 not a member. */
+    @GET("groups/{group_id}/members")
+    suspend fun getGroupMembers(@Path("group_id") groupId: String): List<GroupMemberDto>
+
+    /** The caller's own profile, including the saved (or default) avatar. 404 if there is no profile document. */
+    @GET("users/me")
+    suspend fun getMe(): UserMeDto
+
+    /** Saves the caller's avatar (any subset of fields; 422 on an invalid value). Returns the full profile. */
+    @PATCH("users/me/avatar")
+    suspend fun updateMyAvatar(@Body body: AvatarDto): UserMeDto
+
     @GET("groups/{group_id}/expenses")
     suspend fun getGroupExpenses(@Path("group_id") groupId: String): List<ExpenseDto>
 

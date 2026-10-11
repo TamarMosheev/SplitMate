@@ -3,6 +3,7 @@ package com.example.myapplication.repository
 import android.util.Log
 import com.example.myapplication.data.model.GROUPS_COLLECTION
 import com.example.myapplication.data.model.GroupMember
+import com.example.myapplication.data.model.avatarFromProfile
 import com.example.myapplication.utils.Resource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
@@ -88,7 +89,8 @@ class ExpenseRepository(
         GroupMember(
             uid = uid,
             name = doc.getString("name").orEmpty().ifBlank { doc.getString("email").orEmpty() },
-            email = doc.getString("email").orEmpty()
+            email = doc.getString("email").orEmpty(),
+            avatar = avatarFromProfile(doc.get("avatar"))
         )
     } catch (e: Exception) {
         Log.w(TAG, "Could not read users/$uid", e)

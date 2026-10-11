@@ -56,9 +56,30 @@
                         android:textSize="13sp" />
                 </LinearLayout>
 
+                <!-- "האווטאר שלי": my saved avatar; opens the avatar editor. -->
+                <com.google.android.material.card.MaterialCardView
+                    android:id="@+id/btnMyAvatar"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_margin="4dp"
+                    android:clickable="true"
+                    android:focusable="true"
+                    app:cardBackgroundColor="@color/white"
+                    app:cardCornerRadius="20dp"
+                    app:cardElevation="4dp"
+                    app:strokeWidth="0dp">
+
+                    <com.example.myapplication.ui.avatar.AvatarView
+                        android:id="@+id/ivMyAvatar"
+                        android:layout_width="match_parent"
+                        android:layout_height="match_parent"
+                        android:contentDescription="האווטאר שלי" />
+                </com.google.android.material.card.MaterialCardView>
+
                 <FrameLayout
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginStart="4dp"
                     android:clipChildren="false">
 
                     <com.google.android.material.card.MaterialCardView

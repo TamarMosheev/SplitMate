@@ -36,6 +36,7 @@ class SearchResultAdapter(
         val b = holder.binding
         b.tvResultName.text = highlight(member.name, query)
         b.tvResultEmail.text = member.email
+        b.ivResultAvatar.setAvatar(member.avatar)
         b.root.setOnClickListener { onAdd(member) }
     }
 

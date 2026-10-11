@@ -5,7 +5,7 @@ import org.json.JSONObject
 import retrofit2.HttpException
 
 /** Which call failed; the same status code means different things for different actions. */
-enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT, ADD_MEMBER }
+enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT, ADD_MEMBER, LOAD_PROFILE, SAVE_AVATAR }
 
 /** Turns API failures into user-facing (Hebrew) messages. */
 object ApiErrorMapper {
@@ -22,6 +22,17 @@ object ApiErrorMapper {
     private val isPaymentFlow = setOf(ApiAction.CLAIM_PAYMENT, ApiAction.CONFIRM_PAYMENT)
 
     fun message(e: Throwable, action: ApiAction = ApiAction.GENERAL): String = when {
+        action == ApiAction.SAVE_AVATAR -> when {
+            e is IOException -> "לא ניתן להתחבר לשרת"
+            e is HttpException && (e.code() == 422 || e.code() == 400) -> "בחירת האווטאר אינה תקינה"
+            else -> "לא הצלחנו לשמור את האווטאר"
+        }
+        action == ApiAction.LOAD_PROFILE -> when {
+            e is HttpException && e.code() == 401 -> "ההתחברות פגה. התחברו מחדש"
+            e is HttpException && e.code() == 404 -> "פרופיל המשתמש לא נמצא"
+            e is IOException -> "לא ניתן להתחבר לשרת"
+            else -> "לא הצלחנו לטעון את האווטאר"
+        }
         e is HttpException -> {
             val detail = detail(e).orEmpty()
             when (e.code()) {
@@ -33,7 +44,7 @@ object ApiErrorMapper {
                     ApiAction.MARK_PAID -> "רק מי שמגיע לו הכסף יכול לסמן חוב כשולם"
                     ApiAction.REMINDER -> "רק מי שמגיע לו הכסף יכול לשלוח תזכורת"
                     ApiAction.CLAIM_PAYMENT, ApiAction.CONFIRM_PAYMENT -> "אין לך הרשאה לבצע פעולה זו"
-                    ApiAction.GENERAL -> "אין לכם הרשאה לבצע פעולה זו"
+                    ApiAction.GENERAL, ApiAction.LOAD_PROFILE, ApiAction.SAVE_AVATAR -> "אין לכם הרשאה לבצע פעולה זו"
                 }
                 404 -> if (action == ApiAction.ADD_MEMBER) "המשתמש לא נמצא"
                 else if (action == ApiAction.GENERAL) "הפריט המבוקש לא נמצא"

@@ -6,5 +6,5 @@ package com.example.myapplication.data.api
  * If the IP changes, also update res/xml/network_security_config.xml.
  */
 object ApiConfig {
-    const val BASE_URL = "http://172.30.33.169:8000/"
+    const val BASE_URL = "http://172.30.33.169:8001/"
 }

@@ -11,7 +11,9 @@ data class MemberBalanceUi(
     /** Server balance in this group; null if the balances request failed. */
     val balance: BigDecimal?,
     /** The member's saved avatar from GET /groups/{id}/members; null renders the default avatar. */
-    val avatar: Avatar? = null
+    val avatar: Avatar? = null,
+    /** Backend rule: any current member removes any OTHER current member. Never yourself or a former member. */
+    val canRemove: Boolean = false
 )
 
 /** What one expense row renders. */
@@ -33,6 +35,8 @@ data class GroupDetailsContent(
     val createdBy: String?,
     /** Contract rule: only the group's creator may delete it (`createdBy == current uid`). */
     val canDelete: Boolean,
+    /** Everyone except the creator may leave (the creator gets 409 and must delete the group instead). */
+    val canLeave: Boolean = false,
     /** The signed-in user's balance in this group; null if the balances request failed. */
     val myBalance: BigDecimal?,
     val members: List<MemberBalanceUi>,

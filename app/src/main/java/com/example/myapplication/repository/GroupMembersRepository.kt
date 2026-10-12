@@ -20,6 +20,14 @@ class GroupMembersRepository {
         api.getGroup(groupId).memberIds.orEmpty().toSet()
     }
 
+    /** GET /groups/{id}/members: the CURRENT members (never removed ones) with their saved avatars, in memberIds order. */
+    suspend fun members(groupId: String): Resource<List<GroupMember>> = call(ApiAction.GENERAL, "GET groups/$groupId/members") {
+        api.getGroupMembers(groupId).mapNotNull { m ->
+            val uid = m.uid?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            GroupMember(uid, m.displayName.orEmpty(), m.email.orEmpty(), m.avatar.toAvatar())
+        }
+    }
+
     suspend fun search(query: String): Resource<List<GroupMember>> = call(ApiAction.GENERAL, "GET users/search") {
         Log.d(TAG, "GET users/search query='$query'")
         api.searchUsers(query).also { Log.d(TAG, "users/search -> 200, ${it.size} result(s): $it") }.mapNotNull { u ->
@@ -32,6 +40,19 @@ class GroupMembersRepository {
     suspend fun addMember(groupId: String, uid: String): Resource<Set<String>> = call(ApiAction.ADD_MEMBER, "POST groups/$groupId/members") {
         Log.d(TAG, "POST groups/$groupId/members userId=$uid")
         api.addGroupMember(groupId, AddMemberRequest(uid)).memberIds.orEmpty().toSet()
+    }
+
+    /** Success only when the backend accepted it; history is untouched, only membership changes. */
+    suspend fun removeMember(groupId: String, uid: String): Resource<Set<String>> = call(ApiAction.REMOVE_MEMBER, "DELETE groups/$groupId/members/$uid") {
+        Log.d(TAG, "DELETE groups/$groupId/members/$uid")
+        api.removeGroupMember(groupId, uid).memberIds.orEmpty().toSet()
+    }
+
+    /** Success only when the backend accepted it. The leaving user is the authenticated one; no uid is sent. */
+    suspend fun leaveGroup(groupId: String): Resource<Unit> = call(ApiAction.LEAVE_GROUP, "DELETE groups/$groupId/members/me") {
+        Log.d(TAG, "DELETE groups/$groupId/members/me")
+        api.leaveGroup(groupId)
+        Unit
     }
 
     private suspend fun <T> call(action: ApiAction, what: String = "", block: suspend () -> T): Resource<T> = try {

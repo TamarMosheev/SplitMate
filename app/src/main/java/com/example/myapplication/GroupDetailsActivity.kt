@@ -6,6 +6,7 @@ import android.view.LayoutInflater
 import android.view.View
 import android.widget.Toast
 import androidx.activity.viewModels
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -80,6 +81,15 @@ class GroupDetailsActivity : AppCompatActivity() {
             )
         }
 
+        binding.btnLeaveGroup.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("עזיבת קבוצה")
+                .setMessage("האם את בטוחה שברצונך לעזוב את הקבוצה?")
+                .setNegativeButton("ביטול", null)
+                .setPositiveButton("עזבי קבוצה") { _, _ -> viewModel.leaveGroup() }
+                .show()
+        }
+
         // The shared confirmation; the delete itself runs in the ViewModel's shared GroupDeleter.
         binding.btnDeleteGroup.setOnClickListener {
             confirmDeleteGroup(this) { viewModel.deleteGroup() }
@@ -92,6 +102,21 @@ class GroupDetailsActivity : AppCompatActivity() {
                     viewModel.deleter.deletingIds.collect { ids ->
                         binding.btnDeleteGroup.isEnabled = ids.isEmpty()
                         binding.btnAddExpense.isEnabled = ids.isEmpty() && viewModel.state.value is GroupDetailsUiState.Success
+                    }
+                }
+                launch {
+                    viewModel.removingUid.collect { removing ->
+                        binding.btnLeaveGroup.isEnabled = removing == null
+                        for (i in 0 until binding.membersList.childCount) {
+                            binding.membersList.getChildAt(i).findViewById<View>(R.id.btnRemoveMember)
+                                ?.isEnabled = removing == null
+                        }
+                    }
+                }
+                launch {
+                    viewModel.removeResults.collect {
+                        it.message?.let { msg -> Toast.makeText(this@GroupDetailsActivity, msg, Toast.LENGTH_LONG).show() }
+                        if (it.leftGroup) finish() // Home refetches GET /groups in onRestart; the group is gone for me
                     }
                 }
                 launch {
@@ -131,6 +156,7 @@ class GroupDetailsActivity : AppCompatActivity() {
             "GroupDetails", "GroupDetailsActivity(activity_group_details)", c.id, c.name, c.createdBy,
             binding.btnDeleteGroup, viewModel.deleter.deletingIds.value.isNotEmpty()
         )
+        binding.btnLeaveGroup.visibility = if (c.canLeave) View.VISIBLE else View.GONE
         binding.tvGroupName.text = c.name
         binding.tvGroupIcon.text = c.icon
         binding.tvGroupIcon.visibility = if (c.icon.isNullOrBlank()) View.GONE else View.VISIBLE
@@ -167,6 +193,18 @@ class GroupDetailsActivity : AppCompatActivity() {
         row.ivMemberAvatar.setAvatar(m.avatar)
         row.tvMemberName.text = if (m.isMe) "$name (אני)" else name
         row.memberDivider.visibility = if (isLast) View.GONE else View.VISIBLE
+
+        row.btnRemoveMember.visibility = if (m.canRemove) View.VISIBLE else View.GONE
+        row.btnRemoveMember.isEnabled = viewModel.removingUid.value == null
+        row.btnRemoveMember.tag = m.uid
+        row.btnRemoveMember.setOnClickListener {
+            AlertDialog.Builder(this)
+                .setTitle("הסרת חבר")
+                .setMessage("האם להסיר את $name מהקבוצה?")
+                .setNegativeButton("ביטול", null)
+                .setPositiveButton("הסר") { _, _ -> viewModel.removeMember(m) }
+                .show()
+        }
 
         val b = m.balance
         val (text, color, background) = when {

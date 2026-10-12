@@ -11,6 +11,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
 import com.example.myapplication.data.model.Expense
 import com.google.firebase.firestore.DocumentSnapshot
+import com.google.firebase.firestore.Source
 import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.awaitClose
@@ -48,11 +49,15 @@ class ExpenseRepository(
     fun newExpenseId(groupId: String): String =
         firestore.collection(GROUPS_COLLECTION).document(groupId).collection(EXPENSES).document().id
 
-    /** Loads groups/{id} and resolves every member UID from users/{uid}. */
+    /**
+     * Loads groups/{id} and resolves every CURRENT member UID from users/{uid}. Always read from the server
+     * (never the local cache) so a member removed elsewhere cannot be offered as an expense participant;
+     * offline this fails instead of showing stale membership.
+     */
     suspend fun loadGroup(groupId: String): Resource<GroupDetails> {
         return try {
             val doc = withTimeout(TIMEOUT_MS) {
-                firestore.collection(GROUPS_COLLECTION).document(groupId).get().await()
+                firestore.collection(GROUPS_COLLECTION).document(groupId).get(Source.SERVER).await()
             }
             if (!doc.exists()) return Resource.Error("הקבוצה לא נמצאה")
             @Suppress("UNCHECKED_CAST")

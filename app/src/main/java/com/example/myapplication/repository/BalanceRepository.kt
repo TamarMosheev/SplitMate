@@ -202,11 +202,29 @@ class BalanceRepository(
 
         val memberIds = group.memberIds.orEmpty()
         val expenseList = expenses.first.orEmpty()
-        val names = UserNameResolver.resolve(memberIds.toSet() + expenseList.mapNotNull { it.paidBy })
+        // Former members stay listed while their balance is non-zero (the server keeps counting every
+        // expense they took part in); at zero they disappear from this list, but old expenses keep them.
+        val formerMembersOwing = balances.first.orEmpty()
+            .filter { (id, balance) -> id !in memberIds && balance.signum() != 0 }
+            .keys.toList()
+        // TEMP DEBUG (member removal): uids only, no tokens.
+        Log.d(TAG, "MEMBERS_DEBUG group=$groupId memberIds=$memberIds balanceKeys=${balances.first?.keys} " +
+            "historicalNonZeroNotMembers=$formerMembersOwing")
+        val names = UserNameResolver.resolve(
+            memberIds.toSet() + formerMembersOwing +
+                expenseList.flatMap { listOfNotNull(it.paidBy) + it.participantIds.orEmpty() }
+        )
 
-        val members = memberIds
+        val members = (memberIds + formerMembersOwing)
             .map { id ->
-                MemberBalanceUi(id, names[id], id == uid, balances.first?.let { it[id] ?: BigDecimal.ZERO }, avatars[id])
+                val isCurrent = id in memberIds
+                // Same rule in every group (createdBy plays no part): a current member may remove any OTHER
+                // current member. Never yourself, never a former member shown only for a historical balance.
+                val removable = isCurrent && id != uid
+                MemberBalanceUi(
+                    id, names[id], id == uid, balances.first?.let { it[id] ?: BigDecimal.ZERO },
+                    avatars[id], canRemove = removable
+                )
             }
             .sortedByDescending { it.isMe } // the signed-in user first
 
@@ -232,6 +250,7 @@ class BalanceRepository(
                 name = group.name.orEmpty(),
                 icon = group.icon?.takeIf { it.isNotBlank() },
                 createdBy = group.createdBy,
+                canLeave = group.createdBy != uid,
                 canDelete = canDeleteGroup(group.createdBy, uid).also {
                     logGroupDeleteDebug("GroupDetails", groupId, group.name.orEmpty(), group.createdBy, uid, it)
                 },

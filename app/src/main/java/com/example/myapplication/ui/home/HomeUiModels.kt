@@ -1,7 +1,11 @@
 package com.example.myapplication.ui.home
 
 /** UI-level models. They describe what the Home screen renders, not a Firestore schema. */
-data class GroupMemberUi(val displayName: String?)
+data class GroupMemberUi(
+    val uid: String,
+    /** The member's saved avatar from GET /groups/{id}/members; null renders the default avatar. */
+    val avatar: com.example.myapplication.data.model.Avatar? = null
+)
 
 data class GroupItemUi(
     val id: String,

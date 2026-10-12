@@ -5,7 +5,7 @@ import org.json.JSONObject
 import retrofit2.HttpException
 
 /** Which call failed; the same status code means different things for different actions. */
-enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT, ADD_MEMBER, LOAD_PROFILE, SAVE_AVATAR }
+enum class ApiAction { GENERAL, MARK_PAID, REMINDER, CLAIM_PAYMENT, CONFIRM_PAYMENT, ADD_MEMBER, REMOVE_MEMBER, LEAVE_GROUP, LOAD_PROFILE, SAVE_AVATAR }
 
 /** Turns API failures into user-facing (Hebrew) messages. */
 object ApiErrorMapper {
@@ -37,19 +37,26 @@ object ApiErrorMapper {
             val detail = detail(e).orEmpty()
             when (e.code()) {
                 400 -> if (action == ApiAction.REMINDER) "לא ניתן לשלוח תזכורת: החייב כבר לא חבר בקבוצה"
+                else if (action == ApiAction.REMOVE_MEMBER) "לא ניתן להסיר את עצמך מהקבוצה"
                 else "הבקשה לא תקינה"
                 401 -> "ההתחברות פגה. התחברו מחדש"
                 403 -> when (action) {
                     ApiAction.ADD_MEMBER -> "אין לך הרשאה להוסיף חבר לקבוצה"
+                    ApiAction.REMOVE_MEMBER, ApiAction.LEAVE_GROUP -> "אין לך הרשאה לבצע פעולה זו"
                     ApiAction.MARK_PAID -> "רק מי שמגיע לו הכסף יכול לסמן חוב כשולם"
                     ApiAction.REMINDER -> "רק מי שמגיע לו הכסף יכול לשלוח תזכורת"
                     ApiAction.CLAIM_PAYMENT, ApiAction.CONFIRM_PAYMENT -> "אין לך הרשאה לבצע פעולה זו"
                     ApiAction.GENERAL, ApiAction.LOAD_PROFILE, ApiAction.SAVE_AVATAR -> "אין לכם הרשאה לבצע פעולה זו"
                 }
                 404 -> if (action == ApiAction.ADD_MEMBER) "המשתמש לא נמצא"
+                else if (action == ApiAction.REMOVE_MEMBER) "החבר כבר לא נמצא בקבוצה"
+                else if (action == ApiAction.LEAVE_GROUP) "הקבוצה כבר לא קיימת או שאינך חברה בה"
                 else if (action == ApiAction.GENERAL) "הפריט המבוקש לא נמצא"
                 else "החוב השתנה או נסגר. הנתונים רועננו"
-                409 -> if (action == ApiAction.ADD_MEMBER) "המשתמש כבר נמצא בקבוצה" else when {
+                409 -> if (action == ApiAction.ADD_MEMBER) "המשתמש כבר נמצא בקבוצה"
+                else if (action == ApiAction.LEAVE_GROUP) "לא ניתן לעזוב את הקבוצה כל עוד את יוצרת הקבוצה"
+                else if (action == ApiAction.REMOVE_MEMBER) "חברי הקבוצה השתנו בינתיים. הנתונים רועננו"
+                else when {
                     "already pending" in detail -> "כבר עדכנת שהתשלום נשלח. ממתינים לאישור."
                     "no pending payment claim" in detail -> "אין דיווח תשלום שממתין לאישור. הנתונים רועננו"
                     "paid without a payment claim" in detail -> "החוב סומן כשולם ללא דיווח תשלום"
@@ -69,7 +76,7 @@ object ApiErrorMapper {
         e is IOException && (e.message == "NO_TOKEN" || e.message == "TOKEN_FAILED") ->
             "אימות המשתמש נכשל. התחברו מחדש"
         e is IOException ->
-            if (action == ApiAction.ADD_MEMBER) "לא ניתן להתחבר לשרת"
+            if (action == ApiAction.ADD_MEMBER || action == ApiAction.REMOVE_MEMBER || action == ApiAction.LEAVE_GROUP) "לא ניתן להתחבר לשרת"
             else if (action in isPaymentFlow) "לא ניתן להתחבר לשרת. נסי שוב."
             else "אין חיבור לשרת. בדקו שהטלפון והמחשב באותה רשת ושהשרת פועל"
         else -> "אירעה שגיאה. נסו שוב"

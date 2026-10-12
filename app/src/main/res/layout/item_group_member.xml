@@ -40,6 +40,18 @@
             android:textSize="15sp"
             android:textStyle="bold"
             tools:text="+₪300.00" />
+
+        <ImageView
+            android:id="@+id/btnRemoveMember"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="הסר חבר"
+            android:focusable="true"
+            android:padding="9dp"
+            android:src="@drawable/ic_trash"
+            android:visibility="gone" />
     </LinearLayout>
 
     <View

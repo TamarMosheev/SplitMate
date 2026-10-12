@@ -26,6 +26,20 @@ interface ApiService {
     @POST("groups/{group_id}/members")
     suspend fun addGroupMember(@Path("group_id") groupId: String, @Body body: AddMemberRequest): GroupDto
 
+    /**
+     * The creator may remove any member except themself; any other member may remove only themself.
+     * 400 target is the creator, 403 not allowed, 404 no such group / not a member. Returns the updated group.
+     */
+    @DELETE("groups/{group_id}/members/{user_id}")
+    suspend fun removeGroupMember(@Path("group_id") groupId: String, @Path("user_id") userId: String): GroupDto
+
+    /**
+     * The authenticated user leaves the group (no uid is sent: the server uses the bearer token).
+     * 403 not a member, 404 no such group, 409 the caller is the creator.
+     */
+    @DELETE("groups/{group_id}/members/me")
+    suspend fun leaveGroup(@Path("group_id") groupId: String): GroupDeletedResponse
+
     /** Registered SplitMate users whose name or email starts with [query], at least 2 characters (the caller is excluded). */
     @GET("users/search")
     suspend fun searchUsers(@Query("query") query: String): List<UserSearchDto>

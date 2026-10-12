@@ -6,13 +6,13 @@ import com.example.myapplication.data.api.ApiService
 import com.example.myapplication.data.api.RetrofitClient
 import com.example.myapplication.repository.AuthRepository
 import com.example.myapplication.repository.BalanceRepository
+import com.example.myapplication.repository.GroupMembersRepository
 import com.example.myapplication.ui.group.canDeleteGroup
 import com.example.myapplication.ui.group.logGroupDeleteDebug
 import com.example.myapplication.utils.Resource
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import java.math.BigDecimal
-import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -38,7 +38,8 @@ import kotlinx.coroutines.tasks.await
 class HomeRepository(
     private val authRepository: AuthRepository = AuthRepository(),
     private val apiService: ApiService = RetrofitClient.apiService,
-    private val balanceRepository: BalanceRepository = BalanceRepository()
+    private val balanceRepository: BalanceRepository = BalanceRepository(),
+    private val membersRepository: GroupMembersRepository = GroupMembersRepository()
 ) {
 
     private val firestore by lazy { FirebaseFirestore.getInstance() }
@@ -67,8 +68,6 @@ class HomeRepository(
             }
         }
 
-    private val memberNames = ConcurrentHashMap<String, String>()
-
     /** Bumped by [refreshGroups]; every change re-fetches GET /groups. */
     private val refreshTrigger = MutableStateFlow(0)
 
@@ -90,13 +89,16 @@ class HomeRepository(
             return@transformLatest
         }
         Log.d(TAG, "GET /groups returned ${groups.size} group(s)")
-        loadMemberNames(groups.flatMap { it.memberIds }.toSet())
         val myUid = authRepository.currentUser?.uid
+        // Current members + saved avatars of every group, fetched fresh on each refresh (no avatar cache).
+        val membersByGroup = coroutineScope {
+            groups.map { g -> async { g.id to loadMembers(g.id, g.memberIds) } }.awaitAll().toMap()
+        }
         val items = groups.map { g ->
             GroupItemUi(
                 id = g.id,
                 name = g.name,
-                members = g.memberIds.map { GroupMemberUi(memberNames[it]) },
+                members = membersByGroup.getValue(g.id),
                 personalBalance = null, // TODO: per-group balance on the group card
                 icon = g.icon.takeIf { it.isNotBlank() },
                 createdBy = g.createdBy,
@@ -116,19 +118,17 @@ class HomeRepository(
         val balanceLoading: Boolean
     )
 
-    /** Fetches users/{uid}.name for members not seen yet; failures leave a generic avatar. */
-    private suspend fun loadMemberNames(uids: Set<String>) = coroutineScope {
-        uids.filter { !memberNames.containsKey(it) }.map { id ->
-            async {
-                try {
-                    firestore.collection(USERS).document(id).get().await()
-                        .getString("name")?.takeIf { it.isNotBlank() }?.let { memberNames[id] = it }
-                } catch (e: Exception) {
-                    Log.w(TAG, "Could not read name of users/$id", e)
-                }
-            }
-        }.awaitAll()
-    }
+    /**
+     * The group's current members with saved avatars (GET /groups/{id}/members). If that request fails the
+     * group's own memberIds (from GET /groups) are shown with the default avatar instead of nothing.
+     */
+    private suspend fun loadMembers(groupId: String, memberIds: List<String>): List<GroupMemberUi> =
+        when (val r = membersRepository.members(groupId)) {
+            is Resource.Success -> r.data.map { GroupMemberUi(it.uid, it.avatar) }
+            else -> memberIds.map { GroupMemberUi(it, null) }
+        }.also { list ->
+            Log.d(TAG, "MEMBERS_DEBUG group=$groupId memberIds=$memberIds shown=${list.map { it.uid }}")
+        }
 
     private fun observeProfile(): Flow<Resource<HomeContent>> = callbackFlow {
         val user = authRepository.currentUser

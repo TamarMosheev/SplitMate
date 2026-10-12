@@ -1,19 +1,16 @@
 package com.example.myapplication.ui.home
 
-import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.TextView
 import androidx.core.content.ContextCompat
-import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
 import com.example.myapplication.databinding.ItemGroupBinding
+import com.example.myapplication.ui.avatar.AvatarView
 import com.example.myapplication.ui.balance.formatMoney
 import com.example.myapplication.ui.group.bindGroupDeleteAction
 import java.text.DecimalFormat
@@ -81,7 +78,7 @@ class GroupAdapter(
                 val params = LinearLayout.LayoutParams(size, size).apply {
                     if (index > 0) marginStart = -overlap
                 }
-                binding.membersRow.addView(avatar(member, size), params)
+                binding.membersRow.addView(avatar(member), params)
             }
 
             val balance = item.personalBalance
@@ -97,25 +94,12 @@ class GroupAdapter(
             )
         }
 
-        private fun avatar(member: GroupMemberUi, size: Int): View {
-            val context = binding.root.context
-            val initial = member.displayName?.trim()?.firstOrNull()?.toString()
-            return if (initial != null) {
-                TextView(context).apply {
-                    text = initial
-                    gravity = Gravity.CENTER
-                    textSize = 13f
-                    setTextColor(ContextCompat.getColor(context, R.color.home_deep))
-                    setBackgroundResource(R.drawable.bg_avatar)
-                }
-            } else {
-                ImageView(context).apply {
-                    setImageResource(R.drawable.ic_person)
-                    setPadding(size / 5, size / 5, size / 5, size / 5)
-                    setBackgroundResource(R.drawable.bg_avatar)
-                }
+        /** The shared circular [AvatarView]; a null saved avatar renders the default one. */
+        private fun avatar(member: GroupMemberUi): View =
+            AvatarView(binding.root.context).apply {
+                setAvatar(member.avatar)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
             }
-        }
     }
 
     private object Diff : DiffUtil.ItemCallback<GroupItemUi>() {

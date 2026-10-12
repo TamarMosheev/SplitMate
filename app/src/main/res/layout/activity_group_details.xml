@@ -65,18 +65,6 @@
             android:textStyle="bold"
             tools:text="גינה של הבניינים אורים 6" />
 
-        <!-- Shown only to the group's creator (the only person the server lets delete it). -->
-        <ImageView
-            android:id="@+id/btnDeleteGroup"
-            android:layout_width="44dp"
-            android:layout_height="44dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:contentDescription="מחק קבוצה"
-            android:focusable="true"
-            android:padding="10dp"
-            android:src="@drawable/ic_trash"
-            android:visibility="gone" />
     </LinearLayout>
 
     <ProgressBar
@@ -267,6 +255,42 @@
                 android:layout_marginTop="10dp"
                 android:nestedScrollingEnabled="false"
                 android:overScrollMode="never" />
+
+            <!-- Bottom action: exactly one of these two is visible. Creator: delete. Everyone else: leave. -->
+            <TextView
+                android:id="@+id/btnDeleteGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:padding="14dp"
+                android:text="מחיקת קבוצה"
+                android:textColor="@color/home_negative"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+
+            <!-- Separate from removing another member. Hidden for the creator (the server answers 409). -->
+            <TextView
+                android:id="@+id/btnLeaveGroup"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="24dp"
+                android:layout_marginBottom="8dp"
+                android:background="?attr/selectableItemBackground"
+                android:clickable="true"
+                android:focusable="true"
+                android:gravity="center"
+                android:padding="14dp"
+                android:text="עזיבת קבוצה"
+                android:textColor="@color/home_negative"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
 

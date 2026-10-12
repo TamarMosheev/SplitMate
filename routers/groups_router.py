@@ -12,7 +12,7 @@ from dependencies.group_dependencies import (
     payment_service,
     settlement_service,
 )
-from models.group_models import AddMemberRequest, GroupDeleted, UserPublic
+from models.group_models import AddMemberRequest, GroupDeleted, GroupLeft, UserPublic
 from models.notification_models import NotificationOut
 from models.settlement_models import (
     MarkPaidRequest,
@@ -28,6 +28,7 @@ from services.notification_service import (
 )
 from services.group_service import (
     AlreadyMemberError,
+    CreatorCannotLeaveError,
     GroupNotAllowedError,
     GroupNotFoundError,
     InvalidMemberRequestError,
@@ -73,6 +74,44 @@ def add_group_member(group_id: str, body: AddMemberRequest, uid: str = Depends(g
         raise HTTPException(status_code=404, detail=str(error))
     except AlreadyMemberError as error:
         raise HTTPException(status_code=409, detail=str(error))
+
+
+@router.delete("/{group_id}/members/me", response_model=GroupLeft)
+def leave_group(group_id: str, uid: str = Depends(get_current_uid)):
+    """The authenticated user leaves the group (no uid is accepted from the client).
+
+    Only memberIds changes: the group, the user's account, expenses, settlements and balances stay.
+    403: not a member. 404: no such group. 409: the caller is the group's creator (they cannot leave).
+    Declared before DELETE .../members/{user_id} so "me" is never read as a uid.
+    """
+    try:
+        group_service.leave_group(group_id, uid)
+    except GroupNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error))
+    except NotAMemberError as error:
+        raise HTTPException(status_code=403, detail=str(error))
+    except CreatorCannotLeaveError as error:
+        raise HTTPException(status_code=409, detail=str(error))
+    return {"success": True, "groupId": group_id, "leftGroup": True}
+
+
+@router.delete("/{group_id}/members/{user_id}")
+def remove_group_member(group_id: str, user_id: str, uid: str = Depends(get_current_uid)):
+    """Remove another member. Any current member may remove any OTHER current member, in every group
+    (the creator gets no special treatment).
+
+    Returns the updated group. 400: the caller targets themselves. 403: caller is not a member.
+    404: no such group, or the target is not a member.
+    Only memberIds changes: existing expenses, settlements and balances are untouched.
+    """
+    try:
+        return group_service.remove_member(group_id, uid, user_id)
+    except InvalidMemberRequestError as error:
+        raise HTTPException(status_code=400, detail=str(error))
+    except NotAMemberError as error:
+        raise HTTPException(status_code=403, detail=str(error))
+    except (GroupNotFoundError, UserNotFoundError) as error:
+        raise HTTPException(status_code=404, detail=str(error))
 
 
 @router.delete("/{group_id}", response_model=GroupDeleted)

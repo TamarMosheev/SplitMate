@@ -31,6 +31,10 @@ class InvalidMemberRequestError(Exception):
     """The add-member or user-search request is not valid."""
 
 
+class CreatorCannotLeaveError(Exception):
+    """The group's creator tried to leave; they must stay (or delete the group)."""
+
+
 class GroupService:
     """Group-level operations that touch more than the group document."""
 
@@ -105,6 +109,54 @@ class GroupService:
             raise NotAMemberError("You are not a member of this group")
         except FileExistsError:
             raise AlreadyMemberError("This user is already a member of the group")
+
+    def remove_member(self, group_id: str, requester_uid: str, target_uid: str) -> dict:
+        """Remove another member from the group. Any current member may remove any OTHER current member
+        (same rule in every group, createdBy is not consulted); removing yourself is rejected.
+
+        Only memberIds changes. Expenses (paidBy / participantIds / exactAmounts), settlements and balances
+        are not read or rewritten: old expenses keep naming the removed user and balances are still
+        computed from them, so an outstanding balance stays visible and settleable. The user is simply
+        absent from NEW expenses, because those are built from the current memberIds.
+        """
+        target_uid = (target_uid or "").strip()
+        if not target_uid:
+            raise InvalidMemberRequestError("userId must not be empty")
+        try:
+            return self._groups.remove_member(group_id, requester_uid, target_uid)
+        except LookupError:
+            raise GroupNotFoundError(f"Group '{group_id}' not found")
+        except PermissionError:
+            raise NotAMemberError("You are not a member of this group")
+        except ValueError:
+            raise InvalidMemberRequestError("You cannot remove yourself from the group with this request")
+        except FileNotFoundError:
+            raise UserNotFoundError(f"User '{target_uid}' is not a member of this group")
+
+    def leave_group(self, group_id: str, uid: str) -> None:
+        """The authenticated user leaves the group. Only memberIds changes; the group, the user's account,
+        expenses (paidBy / participantIds / exactAmounts), settlements and balances are all kept, so any
+        balance the user had stays visible and settleable.
+
+        The creator cannot leave (no ownership transfer exists): with other members remaining they must
+        be removed or the creator must stay; alone, the group has to be deleted separately.
+        """
+        try:
+            self._groups.leave(group_id, uid)
+        except LookupError:
+            raise GroupNotFoundError(f"Group '{group_id}' not found")
+        except PermissionError:
+            raise NotAMemberError("You are not a member of this group")
+        except ValueError as error:
+            if error.args[0] == 0:
+                raise CreatorCannotLeaveError(
+                    "You are the only member and the creator of this group. It cannot be left; "
+                    "delete the group with DELETE /groups/{group_id} instead"
+                )
+            raise CreatorCannotLeaveError(
+                "The creator of the group cannot leave while other members remain. "
+                "Ownership transfer is not supported yet"
+            )
 
     def search_users(self, query: str, limit: int = 20) -> list:
         query = (query or "").strip()

@@ -10,6 +10,12 @@ class GroupDeleted(BaseModel):
     groupId: str
 
 
+class GroupLeft(BaseModel):
+    success: bool
+    groupId: str
+    leftGroup: bool
+
+
 class AddMemberRequest(BaseModel):
     userId: str
 

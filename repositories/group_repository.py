@@ -64,3 +64,58 @@ class GroupRepository:
 
         attempt(db.transaction())
         return self.get_by_id(group_id)
+
+    def leave(self, group_id: str, uid: str) -> None:
+        """Atomically remove `uid` from memberIds, in one transaction that re-reads the group.
+
+        Only memberIds is written (ArrayRemove). Raises LookupError (no group), PermissionError (uid is
+        not a member) or ValueError(other_member_count) when uid is the group's creator: the creator
+        may not leave, whether or not other members remain (the group must be deleted instead).
+        """
+        db = self._firebase.get_db()
+        ref = db.collection(self.COLLECTION).document(group_id)
+
+        @transactional
+        def attempt(transaction):
+            doc = ref.get(transaction=transaction)
+            if not doc.exists:
+                raise LookupError(group_id)
+            data = doc.to_dict()
+            members = data.get("memberIds", [])
+            if uid not in members:
+                raise PermissionError(uid)
+            if uid == data.get("createdBy"):
+                raise ValueError(len([m for m in members if m != uid]))
+            transaction.update(ref, {"memberIds": firestore.ArrayRemove([uid])})
+
+        attempt(db.transaction())
+
+    def remove_member(self, group_id: str, requester_uid: str, target_uid: str) -> Optional[dict]:
+        """Atomically remove `target_uid` from memberIds, in one transaction that re-reads the group.
+
+        ONLY memberIds is written (ArrayRemove). Expenses and settlements live in subcollections and are
+        never read or written here, so history stays exactly as it was.
+        Rule, the same for every group: any current member may remove any OTHER current member;
+        createdBy plays no part. Raises LookupError (no group), PermissionError (requester is not a
+        member), ValueError (requester == target: leaving is not done through this call) or
+        FileNotFoundError (target is not a member). Returns the updated group.
+        """
+        db = self._firebase.get_db()
+        ref = db.collection(self.COLLECTION).document(group_id)
+
+        @transactional
+        def attempt(transaction):
+            doc = ref.get(transaction=transaction)
+            if not doc.exists:
+                raise LookupError(group_id)
+            members = doc.to_dict().get("memberIds", [])
+            if requester_uid not in members:
+                raise PermissionError(requester_uid)
+            if target_uid == requester_uid:
+                raise ValueError(target_uid)
+            if target_uid not in members:
+                raise FileNotFoundError(target_uid)
+            transaction.update(ref, {"memberIds": firestore.ArrayRemove([target_uid])})
+
+        attempt(db.transaction())
+        return self.get_by_id(group_id)

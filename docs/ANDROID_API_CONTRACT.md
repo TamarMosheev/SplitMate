@@ -570,6 +570,46 @@ Response `201`: the updated group object (same shape as [3.1](#31-list-my-groups
 | `409` | The user is already a member | `This user is already a member of the group` |
 | `422` | Body missing or `userId` not a string | validation list (see §1) |
 
+#### Leave a group
+
+`DELETE /groups/{group_id}/members/me` – auth required. No body and **no uid in the request**: the user who leaves is always the authenticated Firebase user.
+
+- **Who may:** any current member except the group's creator (see below).
+- **Effect:** the caller's uid is removed from `memberIds` atomically (Firestore transaction + `ArrayRemove`). Nothing else is written: the group, `createdBy`, the user's account, expenses and settlements are all kept.
+- **Creator restriction:** the creator (`createdBy == caller`) **cannot leave**, whether or not other members remain, and gets `409` with a clear reason. No ownership transfer exists, so with other members remaining the creator must stay; if the creator is the only member, the group must be deleted separately with `DELETE /groups/{group_id}` (it is never deleted automatically). Android should hide/disable "Leave" for the creator (`group.createdBy == currentUser.uid`) and offer "Delete group" instead.
+- **Historical expenses:** unchanged. Old expenses keep `paidBy`, `participantIds` and `exactAmounts` exactly as created, so they still name the user who left.
+- **Historical balances:** unchanged. Balances and settlements are computed from the stored expenses and payments, not from `memberIds`, so a user who leaves while owing or being owed money keeps that balance in `GET .../balances` and `GET .../settlement`. Leaving is not blocked by outstanding debt. The user is no longer a member, so they can no longer be reminded or send/confirm payment claims through the group (they get `403`), and others cannot send them a reminder (`400`, "The debtor is no longer a member of this group").
+- **After leaving:** the user is not listed by `GET /groups/{group_id}/members`, the group is no longer in `GET /groups`, every `/groups/{group_id}/...` endpoint answers `403` for them, and they are not a valid `paidBy`/`participantIds` in new expenses (`400`).
+
+Response `200`:
+
+```json
+{ "success": true, "groupId": "aHnBG9OW2xQspSiyOdHO", "leftGroup": true }
+```
+
+| Status | When | `detail` |
+|---|---|---|
+| `200` | Left the group | – |
+| `401` | Missing/invalid token | see §1 |
+| `403` | The caller is not a member of the group (also: already left) | `You are not a member of this group` |
+| `404` | No such group | `Group '<id>' not found` |
+| `409` | The caller is the group's creator | `The creator of the group cannot leave while other members remain. Ownership transfer is not supported yet` / `You are the only member and the creator of this group. It cannot be left; delete the group with DELETE /groups/{group_id} instead` |
+
+#### Remove another member
+
+`DELETE /groups/{group_id}/members/{user_id}` – auth required.
+
+- **Who may:** any current member may remove any **other** current member, in every group (`createdBy` plays no part). Removing yourself here is rejected: use [Leave a group](#leave-a-group).
+- **Effect:** only `memberIds` changes. Expenses, settlements and balances are untouched (same history rules as leaving). Response `200`: the updated group object.
+
+| Status | When | `detail` |
+|---|---|---|
+| `200` | Member removed | – |
+| `400` | `user_id` is the caller | `You cannot remove yourself from the group with this request` |
+| `401` | Missing/invalid token | see §1 |
+| `403` | The caller is not a member | `You are not a member of this group` |
+| `404` | No such group, or the target is not a member | `Group '<id>' not found` / `User '<uid>' is not a member of this group` |
+
 #### Delete a group
 
 `DELETE /groups/{group_id}`
@@ -1295,6 +1335,8 @@ All four types use the same fields, the same list, the same unread count and the
 | `GET /groups/{group_id}` | 200 | 401, 403, 404 |
 | `DELETE /groups/{group_id}` | 200 | 401, 403, 404 |
 | `POST /groups/{group_id}/members` | **201** | 400, 401, 403, 404, 409, 422 |
+| `DELETE /groups/{group_id}/members/me` (leave) | 200 | 401, 403, 404, 409 |
+| `DELETE /groups/{group_id}/members/{user_id}` (remove another) | 200 | 400, 401, 403, 404 |
 | `GET /users/search` | 200 | 400, 401 |
 | `GET /users/me` | 200 | 401, 404 |
 | `PATCH /users/me/avatar` | 200 | 401, 404, 422 |

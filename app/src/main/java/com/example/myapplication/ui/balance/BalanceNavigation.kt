@@ -31,6 +31,14 @@ object BalanceNavigation {
                 .putExtra(DebtDetailsViewModel.EXTRA_SETTLEMENT_ID, settlementId)
         )
 
+    /** A direct-debt row opens the same Debt Details screen; only the other person's uid and the direction travel. */
+    fun openDirectDebtDetails(context: Context, otherUid: String, owedToMe: Boolean) =
+        context.startActivity(
+            Intent(context, DebtDetailsActivity::class.java)
+                .putExtra(DebtDetailsViewModel.EXTRA_OTHER_UID, otherUid)
+                .putExtra(DebtDetailsViewModel.EXTRA_OWED_TO_ME, owedToMe)
+        )
+
     fun openGroupDetails(context: Context, groupId: String) =
         context.startActivity(
             Intent(context, GroupDetailsActivity::class.java)

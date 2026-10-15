@@ -56,8 +56,67 @@ interface ApiService {
     @PATCH("users/me/avatar")
     suspend fun updateMyAvatar(@Body body: AvatarDto): UserMeDto
 
+    /** Everyone who DIRECTLY owes the signed-in user (from expenses they paid). No settlementId on the rows. */
+    @GET("debts/receivable")
+    suspend fun getReceivableDebts(): DirectDebtsResponse
+
+    /** Everyone the signed-in user DIRECTLY owes. */
+    @GET("debts/payable")
+    suspend fun getPayableDebts(): DirectDebtsResponse
+
+    /** One row of [getReceivableDebts] opened: per-group amounts plus the real expenses/payments behind them. 404: no such debt. */
+    @GET("debts/receivable/{uid}")
+    suspend fun getReceivableDebtDetail(@Path("uid") uid: String): DirectDebtDetailDto
+
+    @GET("debts/payable/{uid}")
+    suspend fun getPayableDebtDetail(@Path("uid") uid: String): DirectDebtDetailDto
+
+    /** Creditor only. Several groups: [groupId] pays one, [allGroups] = true pays all (else 400). 409: already paid / stale amount. */
+    @PATCH("debts/direct/{debtor_uid}/{creditor_uid}/paid")
+    suspend fun markDirectDebtPaid(
+        @Path("debtor_uid") debtorUid: String,
+        @Path("creditor_uid") creditorUid: String,
+        @Query("groupId") groupId: String?,
+        @Query("allGroups") allGroups: Boolean?,
+        @Body body: MarkPaidRequest
+    ): DirectDebtPaidDto
+
+    /** Debtor only ("שילמתי"): creates a pending claim, the debt does not change. 409: a claim is already pending / stale amount. */
+    @POST("debts/direct/{debtor_uid}/{creditor_uid}/payment-claim")
+    suspend fun claimDirectDebtPaid(
+        @Path("debtor_uid") debtorUid: String,
+        @Path("creditor_uid") creditorUid: String,
+        @Query("groupId") groupId: String?,
+        @Query("allGroups") allGroups: Boolean?,
+        @Body body: MarkPaidRequest
+    ): DirectDebtClaimDto
+
+    /** Creditor only: confirms the pending claim(s); the claimed amount becomes a real payment. 409: no pending claim. */
+    @PATCH("debts/direct/{debtor_uid}/{creditor_uid}/confirm-payment")
+    suspend fun confirmDirectDebtClaim(
+        @Path("debtor_uid") debtorUid: String,
+        @Path("creditor_uid") creditorUid: String,
+        @Query("groupId") groupId: String?,
+        @Query("allGroups") allGroups: Boolean?
+    ): DirectDebtPaidDto
+
+    /** Creditor only, no body. Without [groupId] one reminder covers all groups. 201 -> the notification; 409 within 24h. */
+    @POST("debts/direct/{debtor_uid}/{creditor_uid}/reminder")
+    suspend fun sendDirectDebtReminder(
+        @Path("debtor_uid") debtorUid: String,
+        @Path("creditor_uid") creditorUid: String,
+        @Query("groupId") groupId: String?
+    ): NotificationDto
+
     @GET("groups/{group_id}/expenses")
     suspend fun getGroupExpenses(@Path("group_id") groupId: String): List<ExpenseDto>
+
+    /** Who owes the payer what for ONE expense (server cent allocation). 403 not a member, 404 no such group/expense. */
+    @GET("groups/{group_id}/expenses/{expense_id}/breakdown")
+    suspend fun getExpenseBreakdown(
+        @Path("group_id") groupId: String,
+        @Path("expense_id") expenseId: String
+    ): ExpenseBreakdownDto
 
     /** uid -> net balance. Positive = is owed, negative = owes. */
     @GET("groups/{group_id}/balances")

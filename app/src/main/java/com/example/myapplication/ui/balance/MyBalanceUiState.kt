@@ -23,6 +23,24 @@ data class DebtUi(
     val otherAvatar: com.example.myapplication.data.model.Avatar? = null
 )
 
+/**
+ * One person in "חייבים לך" / "את חייבת": the server's DIRECT debt over every group (no settlement, no id to act on).
+ * [amount] and each group's amount are exactly what the backend returned.
+ */
+data class DirectDebtUi(
+    val otherUid: String,
+    val otherName: String?,
+    val otherAvatar: com.example.myapplication.data.model.Avatar?,
+    val amount: BigDecimal,
+    val groups: List<DirectDebtGroupUi>,
+    /** True: they owe the signed-in user ("חייבים לך"). False: the signed-in user owes them. */
+    val owedToMe: Boolean
+)
+
+data class DirectDebtGroupUi(val groupId: String, val name: String, val amount: BigDecimal)
+
+data class DirectDebtList(val total: BigDecimal, val debts: List<DirectDebtUi>)
+
 data class GroupBalanceUi(
     val id: String,
     val name: String,
@@ -38,14 +56,14 @@ data class GroupBalanceUi(
 )
 
 data class MyBalanceContent(
-    /** Null when there are groups but every balance request failed. */
+    /** Direct net: receivable.total - payable.total. */
     val totalBalance: BigDecimal?,
     val groupCount: Int,
-    /** Sum of open settlements where the signed-in user is the creditor ("חייבים לך"). */
+    /** GET /debts/receivable `total`, exactly ("חייבים לך"). */
     val owedToMe: BigDecimal,
-    /** Sum of open settlements where the signed-in user is the debtor ("את חייבת"). */
+    /** GET /debts/payable `total`, exactly ("את חייבת"). */
     val owedByMe: BigDecimal,
-    val debts: List<DebtUi>,
+    val debts: List<DirectDebtUi>,
     val groups: List<GroupBalanceUi>,
     /** Number of groups whose balance or settlement request failed. */
     val failedGroups: Int

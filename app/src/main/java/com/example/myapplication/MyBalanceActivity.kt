@@ -16,7 +16,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityMyBalanceBinding
 import com.example.myapplication.ui.balance.BalanceNavigation
-import com.example.myapplication.ui.balance.DebtAdapter
+import com.example.myapplication.ui.balance.DirectDebtAdapter
 import com.example.myapplication.ui.balance.GroupBalanceAdapter
 import com.example.myapplication.ui.balance.MyBalanceContent
 import com.example.myapplication.ui.balance.MyBalanceUiState
@@ -29,9 +29,7 @@ class MyBalanceActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityMyBalanceBinding
     private val viewModel: MyBalanceViewModel by viewModels()
-    private val debtAdapter = DebtAdapter { debt ->
-        BalanceNavigation.openDebtDetails(this, debt.groupId, debt.settlementId)
-    }
+    private val debtAdapter = DirectDebtAdapter { d -> BalanceNavigation.openDirectDebtDetails(this, d.otherUid, d.owedToMe) }
     // Only the real groupId is passed; the details screen loads everything fresh from the backend.
     private val groupAdapter = GroupBalanceAdapter(
         onGroupClick = { group -> BalanceNavigation.openGroupDetails(this, group.id) },
@@ -83,10 +81,11 @@ class MyBalanceActivity : AppCompatActivity() {
         groupAdapter.submitList(shownGroups.map { it.copy(isDeleting = it.id in deleting) })
     }
 
-    /** Back from Debt Details (or anywhere): the debt may have been paid, so reload from the server. */
+    /** Back from any other screen: reload from the server. */
     override fun onRestart() {
         super.onRestart()
-        viewModel.load()
+        // Silent: keep the cards on screen (tappable) while refetching, instead of swapping them for a spinner.
+        viewModel.load(silent = true)
     }
 
     private fun render(state: MyBalanceUiState) {

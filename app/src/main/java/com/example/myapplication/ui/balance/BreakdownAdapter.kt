@@ -10,7 +10,7 @@ import com.example.myapplication.databinding.ItemBreakdownBinding
 
 /** Rows of "ממה זה מורכב", shown exactly as the server returned them. */
 class BreakdownAdapter(
-    private val onExpenseClick: (expenseId: String) -> Unit = {}
+    private val onExpenseClick: (row: BreakdownRowUi) -> Unit = {}
 ) : ListAdapter<BreakdownRowUi, BreakdownAdapter.VH>(Diff) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
@@ -21,7 +21,7 @@ class BreakdownAdapter(
         holder.bind(row, isLast = position == itemCount - 1)
         // Expense rows open the one Expense Details screen; payment rows are not expenses.
         val expenseId = row.expenseId
-        if (expenseId != null) holder.itemView.setOnClickListener { onExpenseClick(expenseId) }
+        if (expenseId != null) holder.itemView.setOnClickListener { onExpenseClick(row) }
         else holder.itemView.setOnClickListener(null).also { holder.itemView.isClickable = false }
     }
 

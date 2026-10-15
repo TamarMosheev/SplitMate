@@ -5,6 +5,8 @@ import java.math.BigDecimal
 /** One row of "ממה זה מורכב": exactly what the server returned for this debt. */
 data class BreakdownRowUi(
     val key: String,
+    /** The group this expense belongs to when the debt spans several (direct debts); null = the debt's group. */
+    val groupId: String? = null,
     /** Real expense id for expense rows (opens Expense Details); null for payment rows. */
     val expenseId: String? = null,
     val title: String,
@@ -49,12 +51,53 @@ enum class DebtActionMode {
     CREDITOR_OPEN,
 
     /** Creditor, debtor reported paying: "אשר קבלת תשלום". */
-    CREDITOR_CLAIM_PENDING
+    CREDITOR_CLAIM_PENDING,
+
+    /** A direct debt (no settlement): the buttons follow [DebtDetailsContent.direct], i.e. the server's flags. */
+    DIRECT
 }
 
-data class DebtDetailsContent(
+/** The server's action flags for a direct debt (GET /debts/{receivable|payable}/{uid}); nothing is guessed locally. */
+data class DirectActions(
+    val debtorUid: String,
+    val creditorUid: String,
+    val canMarkPaid: Boolean,
+    val canSendReminder: Boolean,
+    val requiresGroupSelection: Boolean,
+    /** Debtor: "שילמתי" allowed. */
+    val canClaimPaid: Boolean,
+    /** A claim is waiting for the creditor. */
+    val claimPending: Boolean,
+    val claimedAmount: BigDecimal?,
+    /** Creditor: a claim is waiting for them. */
+    val canConfirmClaim: Boolean,
+    val groups: List<DirectActionGroup>
+) {
+    /** What the one main button does. The server's flags decide; a pending claim is confirmed rather than re-paid. */
+    val primary: DirectPrimary?
+        get() = when {
+            canClaimPaid -> DirectPrimary.CLAIM
+            canConfirmClaim -> DirectPrimary.CONFIRM
+            canMarkPaid -> DirectPrimary.MARK_PAID
+            else -> null
+        }
+}
+
+enum class DirectPrimary { CLAIM, CONFIRM, MARK_PAID }
+
+data class DirectActionGroup(
     val groupId: String,
-    val settlementId: String,
+    val name: String,
+    val amount: BigDecimal,
+    val canMarkPaid: Boolean,
+    val canClaimPaid: Boolean,
+    val canConfirmClaim: Boolean
+)
+
+data class DebtDetailsContent(
+    /** Null for a direct debt (no single group, no settlement): the settlement actions are not available. */
+    val groupId: String?,
+    val settlementId: String?,
     val otherName: String?,
     /** The other person's saved avatar from the backend; null renders the default avatar. */
     val otherAvatar: com.example.myapplication.data.model.Avatar? = null,
@@ -71,7 +114,9 @@ data class DebtDetailsContent(
     val mode: DebtActionMode,
     /** The creditor rejected the debtor's last claim (debtor may report again). */
     val claimRejected: Boolean,
-    val breakdown: Breakdown
+    val breakdown: Breakdown,
+    /** Set only for a direct debt. */
+    val direct: DirectActions? = null
 )
 
 sealed class DebtDetailsUiState {

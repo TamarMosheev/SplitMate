@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layoutDirection="rtl"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingVertical="12dp">
+
+        <!-- Debtor -->
+        <com.example.myapplication.ui.avatar.AvatarView
+            android:id="@+id/ivDebtorAvatar"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:id="@+id/tvDebtorName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAlignment="viewStart"
+            android:textColor="@color/home_navy"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="אור" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:importantForAccessibility="no"
+            android:text="←"
+            android:textColor="@color/home_muted"
+            android:textSize="16sp" />
+
+        <!-- Creditor (the payer) -->
+        <com.example.myapplication.ui.avatar.AvatarView
+            android:id="@+id/ivCreditorAvatar"
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:layout_marginStart="8dp"
+            android:importantForAccessibility="no" />
+
+        <TextView
+            android:id="@+id/tvCreditorName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textAlignment="viewStart"
+            android:textColor="@color/home_navy"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            tools:text="אורטל" />
+
+        <TextView
+            android:id="@+id/tvDebtAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/home_negative"
+            android:textSize="15sp"
+            android:textStyle="bold"
+            tools:text="₪100.00" />
+    </LinearLayout>
+
+    <View
+        android:id="@+id/debtDivider"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/home_light_surface" />
+</LinearLayout>

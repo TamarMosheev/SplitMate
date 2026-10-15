@@ -13,6 +13,12 @@ import com.example.myapplication.data.model.Group
 import com.example.myapplication.data.model.toAvatar
 import com.example.myapplication.data.api.BreakdownResponse
 import com.example.myapplication.data.api.ExpenseDto
+import com.example.myapplication.ui.balance.DirectActionGroup
+import com.example.myapplication.ui.balance.DirectActions
+import com.example.myapplication.ui.balance.DirectDebtGroupUi
+import com.example.myapplication.ui.balance.DirectDebtList
+import com.example.myapplication.ui.balance.DirectDebtUi
+import com.example.myapplication.ui.expense.ExpenseDebtUi
 import com.example.myapplication.ui.expense.ExpenseDetailsContent
 import com.example.myapplication.ui.expense.ExpenseResultUi
 import com.example.myapplication.ui.expense.ParticipantShareUi
@@ -56,13 +62,15 @@ class BalanceRepository(
     private val apiService: ApiService = RetrofitClient.apiService
 ) {
 
-    private class GroupResult(
-        val group: Group,
-        val balance: BigDecimal?,
-        val settlement: SettlementResponse?,
-        val error: Throwable?
-    )
+    private class GroupResult(val group: Group, val balance: BigDecimal?, val error: Throwable?)
 
+    /**
+     * My Balance. The two summary cards, the big net number and the open-debt rows ALL come from the direct-debt
+     * endpoints (GET /debts/receivable and /debts/payable): the cards show those `total`s exactly and the big
+     * number is receivable.total - payable.total. Only the per-group list still uses GET /groups/{id}/balances.
+     * No settlement transfers are read here. If either direct-debt request fails the whole screen reports the
+     * error rather than show totals that disagree with each other.
+     */
     suspend fun loadMyBalance(): Resource<MyBalanceContent> {
         val uid = authRepository.currentUser?.uid ?: return Resource.Error("המשתמש אינו מחובר")
 
@@ -75,63 +83,30 @@ class BalanceRepository(
             return Resource.Error(ApiErrorMapper.message(e))
         }
 
-        val results = coroutineScope {
-            groups.map { g ->
+        val (receivable, payable, results) = coroutineScope {
+            val r = async { loadDirectDebts(owedToMe = true) }
+            val p = async { loadDirectDebts(owedToMe = false) }
+            val g = groups.map { gr ->
                 async {
-                    val (balance, e1) = call("balances", g.id) { apiService.getGroupBalances(g.id)[uid] ?: BigDecimal.ZERO }
-                    val (settlement, e2) = call("settlement", g.id) { apiService.getGroupSettlement(g.id) }
-                    GroupResult(g, balance, settlement, e1 ?: e2)
+                    val (balance, e) = call("balances", gr.id) { apiService.getGroupBalances(gr.id)[uid] ?: BigDecimal.ZERO }
+                    GroupResult(gr, balance, e)
                 }
-            }.awaitAll()
-        }
-
-        // Every group failed on every call: report the first error (401/403/network) instead of an empty screen.
-        if (results.isNotEmpty() && results.all { it.balance == null && it.settlement == null }) {
-            return Resource.Error(ApiErrorMapper.message(results.first().error ?: Exception()))
-        }
-
-        // Open settlements involving me, straight from `transfers`.
-        val open = results.flatMap { r ->
-            r.settlement?.transfers.orEmpty().mapNotNull { t ->
-                val id = t.id ?: return@mapNotNull null
-                val from = t.from ?: return@mapNotNull null
-                val to = t.to ?: return@mapNotNull null
-                val amount = t.amount ?: return@mapNotNull null
-                if (!t.isOpen || amount.signum() <= 0 || (from != uid && to != uid)) null
-                else OpenSettlement(r.group, id, if (to == uid) from else to, amount, owedToMe = to == uid, claimPending = t.hasCurrentClaim)
             }
+            Triple(r.await(), p.await(), g.awaitAll())
         }
-        val names = UserNameResolver.resolve(open.map { it.otherUid }.toSet())
-        val avatarsByGroup = coroutineScope {
-            open.map { it.group.id }.distinct().map { id -> async { id to groupAvatars(id) } }.awaitAll().toMap()
-        }
+        if (receivable is Resource.Error) return receivable
+        if (payable is Resource.Error) return payable
+        val owedToMe = (receivable as Resource.Success).data
+        val owedByMe = (payable as Resource.Success).data
+        Log.i("DIRECT_DEBTS", "myBalance receivable=${owedToMe.total} (${owedToMe.debts.size} rows) payable=${owedByMe.total} (${owedByMe.debts.size} rows) net=${owedToMe.total.subtract(owedByMe.total)}") // TEMP
 
-        val debts = open.map {
-            DebtUi(
-                key = "${it.group.id}:${it.settlementId}",
-                groupId = it.group.id,
-                settlementId = it.settlementId,
-                otherUid = it.otherUid,
-                otherName = names[it.otherUid],
-                otherAvatar = avatarsByGroup[it.group.id]?.get(it.otherUid),
-                amount = it.amount,
-                groupName = it.group.name,
-                owedToMe = it.owedToMe,
-                groupIcon = it.group.icon.takeIf { i -> i.isNotBlank() },
-                claimPending = it.claimPending
-            )
-        }.sortedByDescending { it.amount }
-
-        val balances = results.mapNotNull { it.balance }
         return Resource.Success(
             MyBalanceContent(
-                totalBalance = if (groups.isEmpty()) BigDecimal.ZERO
-                else if (balances.isEmpty()) null
-                else balances.fold(BigDecimal.ZERO, BigDecimal::add),
+                totalBalance = owedToMe.total.subtract(owedByMe.total),
                 groupCount = groups.size,
-                owedToMe = debts.filter { it.owedToMe }.fold(BigDecimal.ZERO) { a, d -> a + d.amount },
-                owedByMe = debts.filterNot { it.owedToMe }.fold(BigDecimal.ZERO) { a, d -> a + d.amount },
-                debts = debts,
+                owedToMe = owedToMe.total,
+                owedByMe = owedByMe.total,
+                debts = (owedToMe.debts + owedByMe.debts).sortedByDescending { it.amount },
                 groups = results.map {
                     GroupBalanceUi(
                         id = it.group.id,
@@ -144,9 +119,47 @@ class BalanceRepository(
                         }
                     )
                 },
-                failedGroups = results.count { it.balance == null || it.settlement == null }
+                failedGroups = results.count { it.balance == null }
             )
         )
+    }
+
+    /**
+     * "חייבים לך" ([owedToMe] = true, GET /debts/receivable) or "את חייבת" (false, GET /debts/payable).
+     * Rows and amounts are the backend's, unchanged: no settlement transfers, no netting, no local math.
+     */
+    suspend fun loadDirectDebts(owedToMe: Boolean): Resource<DirectDebtList> {
+        val response = try {
+            if (owedToMe) apiService.getReceivableDebts() else apiService.getPayableDebts()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "GET /debts/${if (owedToMe) "receivable" else "payable"} failed", e)
+            return Resource.Error(ApiErrorMapper.message(e))
+        }
+        val items = response.debts.orEmpty().filter { !it.userId.isNullOrBlank() && it.amount != null }
+        Log.i("DIRECT_DEBTS", "owedToMe=$owedToMe backendRows=${response.debts?.size} usable=${items.size} total=${response.total}") // TEMP
+        val names = UserNameResolver.resolve(items.filter { it.displayName.isNullOrBlank() }.map { it.userId!! }.toSet())
+        val groupIds = items.flatMap { it.groups.orEmpty().mapNotNull { g -> g.groupId } }.distinct()
+        val avatarsByGroup = coroutineScope {
+            groupIds.map { id -> async { id to groupAvatars(id) } }.awaitAll().toMap()
+        }
+        val rows = items.map { d ->
+            val uid = d.userId!!
+            val groups = d.groups.orEmpty().mapNotNull { g ->
+                DirectDebtGroupUi(g.groupId ?: return@mapNotNull null, g.groupName.orEmpty(), g.amount ?: return@mapNotNull null)
+            }
+            DirectDebtUi(
+                otherUid = uid,
+                otherName = d.displayName?.takeIf { it.isNotBlank() } ?: names[uid],
+                // Saved avatars only exist for current members of a group: someone removed shows the default.
+                otherAvatar = groups.firstNotNullOfOrNull { g -> avatarsByGroup[g.groupId]?.get(uid) },
+                amount = d.amount!!,
+                groups = groups,
+                owedToMe = owedToMe
+            )
+        }
+        return Resource.Success(DirectDebtList(response.total ?: rows.fold(BigDecimal.ZERO) { a, r -> a + r.amount }, rows))
     }
 
     /**
@@ -166,15 +179,6 @@ class BalanceRepository(
         if (ok.isEmpty()) return null
         return ok.fold(BigDecimal.ZERO, BigDecimal::add)
     }
-
-    private class OpenSettlement(
-        val group: Group,
-        val settlementId: String,
-        val otherUid: String,
-        val amount: BigDecimal,
-        val owedToMe: Boolean,
-        val claimPending: Boolean
-    )
 
     /**
      * Group Details: GET /groups/{id} (name, icon, members), /balances (every member's balance) and
@@ -322,8 +326,26 @@ class BalanceRepository(
         val total = expense.amount ?: return Resource.Error("נתוני ההוצאה חסרים")
         val participants = expense.participantIds.orEmpty().distinct()
         val payerUid = expense.paidBy
-        val names = UserNameResolver.resolve(participants.toSet() + setOfNotNull(payerUid))
+        // The per-expense obligations come straight from the server; nothing is recomputed here.
+        val (breakdown, breakdownError) = call("expense breakdown", groupId) {
+            apiService.getExpenseBreakdown(groupId, expenseId)
+        }
+        Log.i("DEBTS_DEBUG", "repo: GET expenses/$expenseId/breakdown group=$groupId ok=${breakdown != null} err=${breakdownError?.javaClass?.simpleName} items=${breakdown?.items?.size}") // TEMP
+        val debtItems = breakdown?.items.orEmpty().filter { it.userId != null && it.owesTo != null }
+        val names = UserNameResolver.resolve(
+            participants.toSet() + setOfNotNull(payerUid) +
+                debtItems.flatMap { listOfNotNull(it.userId, it.owesTo) }
+        )
         val avatars = groupAvatars(groupId)
+        val debts = debtItems.mapNotNull { item ->
+            val amount = item.amountOwed ?: item.share ?: return@mapNotNull null
+            val debtor = item.userId!!
+            val creditor = item.owesTo!!
+            ExpenseDebtUi(
+                debtor, names[debtor], debtor == uid, avatars[debtor],
+                creditor, names[creditor], creditor == uid, avatars[creditor], amount
+            )
+        }
 
         val rows = participants
             .map { ParticipantShareUi(it, names[it], it == uid, shareOf(expense, it), avatars[it]) }
@@ -358,9 +380,19 @@ class BalanceRepository(
                 result = result,
                 sharesNote = if (rows.any { it.share == null })
                     "החלוקה לא מתחלקת בדיוק לאגורות, והשרת הוא שקובע מי משלם את האגורה הנוספת. לכן הסכום לכל משתתף לא מוצג."
-                else null
+                else null,
+                debts = debts,
+                debtsError = breakdownError?.let { breakdownErrorMessage(it) }
             )
         )
+    }
+
+    private fun breakdownErrorMessage(e: Throwable): String = when {
+        e is HttpException && e.code() == 401 -> ApiErrorMapper.message(e)
+        e is HttpException && e.code() == 403 -> "אין לך הרשאה לצפות בפירוט החובות"
+        e is HttpException && e.code() == 404 -> "פירוט החובות של ההוצאה לא נמצא"
+        e is java.io.IOException -> ApiErrorMapper.message(e)
+        else -> "לא ניתן לטעון את פירוט החובות. נסי שוב."
     }
 
     private fun expenseErrorMessage(e: Throwable): String = when {
@@ -465,6 +497,147 @@ class BalanceRepository(
             )
         )
     }
+
+    /**
+     * The existing Debt Details screen for a DIRECT debt (a row of /debts/receivable or /debts/payable), from
+     * GET /debts/{receivable|payable}/{uid}. There is no settlement, so the settlement actions (mark paid,
+     * reminder) are NONE: they would need a settlementId that does not exist.
+     */
+    suspend fun loadDirectDebtDetails(otherUid: String, owedToMe: Boolean): Resource<DebtDetailsContent> {
+        val d = try {
+            if (owedToMe) apiService.getReceivableDebtDetail(otherUid) else apiService.getPayableDebtDetail(otherUid)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: HttpException) {
+            Log.e(TAG, "GET /debts/${if (owedToMe) "receivable" else "payable"}/$otherUid failed", e)
+            return Resource.Error(
+                if (e.code() == 404) "החוב הזה השתנה או כבר לא קיים. חזרו למסך הקודם כדי לרענן" else ApiErrorMapper.message(e)
+            )
+        } catch (e: Exception) {
+            Log.e(TAG, "GET /debts/.../$otherUid failed", e)
+            return Resource.Error(ApiErrorMapper.message(e))
+        }
+        val amount = d.amount ?: return Resource.Error("פרטי החוב חסרים")
+        val directUids = d.debtorUid?.let { db -> d.creditorUid?.let { cr -> db to cr } }
+        val groups = d.groups.orEmpty().filter { !it.groupId.isNullOrBlank() }
+        val severalGroups = groups.size > 1
+        val rows = groups.flatMap { g ->
+            g.items.orEmpty().mapIndexedNotNull { i, item ->
+                val relevant = item.relevantAmount ?: return@mapIndexedNotNull null
+                val isPayment = item.type == "payment"
+                val whole = item.expenseAmount?.let { "מתוך ${formatMoney(it)}" }
+                BreakdownRowUi(
+                    key = "${g.groupId}:${item.expenseId ?: item.settlementId ?: "row$i"}",
+                    groupId = g.groupId,
+                    expenseId = if (isPayment) null else item.expenseId,
+                    title = if (isPayment) "תשלום קודם"
+                    else item.description?.takeIf { it.isNotBlank() } ?: "הוצאה ללא תיאור",
+                    subtitle = listOfNotNull(whole.takeIf { !isPayment }, g.groupName.takeIf { severalGroups }).joinToString(" · ")
+                        .ifEmpty { null },
+                    amount = relevant
+                )
+            }
+        }
+        val breakdown: Breakdown =
+            if (groups.all { it.itemsExact == true }) Breakdown.Rows(rows)
+            else Breakdown.Netted("הסכום כולל תשלומים שגדולים מהחוב הישיר, ולכן הפירוט להלן אינו מסתכם בדיוק לסכום.", rows)
+
+        val singleGroup = groups.singleOrNull()
+        val icon = singleGroup?.groupId?.let {
+            try { apiService.getGroup(it).icon?.takeIf { i -> i.isNotBlank() } } catch (e: CancellationException) { throw e } catch (e: Exception) { null }
+        }
+        val avatar = groups.map { it.groupId!! }.firstNotNullOfOrNull { gid -> groupAvatars(gid)[otherUid] }
+        val name = d.displayName?.takeIf { it.isNotBlank() } ?: UserNameResolver.resolve(setOf(otherUid))[otherUid]
+        return Resource.Success(
+            DebtDetailsContent(
+                groupId = null,
+                settlementId = null,
+                otherName = name,
+                otherAvatar = avatar,
+                owedToMe = owedToMe,
+                amount = amount,
+                isPaid = false,
+                paidAtText = null,
+                markedByName = null,
+                groupName = groups.joinToString(" · ") { it.groupName.orEmpty() },
+                groupIcon = icon,
+                mode = DebtActionMode.DIRECT,
+                claimRejected = false,
+                breakdown = breakdown,
+                direct = directUids?.let { (debtor, creditor) ->
+                    DirectActions(
+                        debtorUid = debtor,
+                        creditorUid = creditor,
+                        canMarkPaid = d.canMarkPaid == true,
+                        canSendReminder = d.canSendReminder == true,
+                        requiresGroupSelection = d.requiresGroupSelection == true,
+                        canClaimPaid = d.canClaimPaid == true,
+                        claimPending = d.claimPending == true,
+                        claimedAmount = d.claimedAmount,
+                        canConfirmClaim = d.canConfirmClaim == true,
+                        groups = groups.map {
+                            DirectActionGroup(
+                                it.groupId!!, it.groupName.orEmpty(), it.amount ?: BigDecimal.ZERO,
+                                it.canMarkPaid == true, it.canClaimPaid == true, it.canConfirmClaim == true
+                            )
+                        }
+                    )
+                }
+            )
+        )
+    }
+
+    /** The server's answer to a direct "סמן כשולם". [remaining] is its `remainingAmount`, unchanged. */
+    sealed class DirectPaidResult {
+        data class Success(val paid: BigDecimal?, val remaining: BigDecimal) : DirectPaidResult()
+        data class Failure(val message: String) : DirectPaidResult()
+    }
+
+    /** PATCH /debts/direct/{debtor}/{creditor}/paid with the amount the screen showed. */
+    suspend fun markDirectPaid(
+        actions: DirectActions, groupId: String?, allGroups: Boolean, expectedAmount: BigDecimal
+    ): DirectPaidResult =
+        try {
+            val r = apiService.markDirectDebtPaid(
+                actions.debtorUid, actions.creditorUid, groupId, if (allGroups) true else null, MarkPaidRequest(expectedAmount)
+            )
+            val remaining = r.remainingAmount
+            if (remaining == null) DirectPaidResult.Failure("התשובה מהשרת חסרה. רעננו את המסך")
+            else DirectPaidResult.Success(r.paidAmount, remaining)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "direct mark paid ${actions.debtorUid}->${actions.creditorUid} failed", e)
+            DirectPaidResult.Failure(ApiErrorMapper.message(e, ApiAction.MARK_PAID))
+        }
+
+    /** Debtor "שילמתי": POST .../payment-claim. Success only on 201; the debt is NOT changed by it. */
+    suspend fun claimDirectPaid(actions: DirectActions, groupId: String?, allGroups: Boolean, expectedAmount: BigDecimal): ActionResult =
+        action(ApiAction.CLAIM_PAYMENT, "direct claim ${actions.debtorUid}->${actions.creditorUid}") {
+            apiService.claimDirectDebtPaid(
+                actions.debtorUid, actions.creditorUid, groupId, if (allGroups) true else null, MarkPaidRequest(expectedAmount)
+            )
+        }
+
+    /** Creditor: PATCH .../confirm-payment. The claimed amount becomes a real payment; [DirectPaidResult.Success.remaining] is the server's. */
+    suspend fun confirmDirectClaim(actions: DirectActions, groupId: String?, allGroups: Boolean): DirectPaidResult =
+        try {
+            val r = apiService.confirmDirectDebtClaim(actions.debtorUid, actions.creditorUid, groupId, if (allGroups) true else null)
+            val remaining = r.remainingAmount
+            if (remaining == null) DirectPaidResult.Failure("התשובה מהשרת חסרה. רעננו את המסך")
+            else DirectPaidResult.Success(r.paidAmount, remaining)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            Log.e(TAG, "direct confirm ${actions.debtorUid}->${actions.creditorUid} failed", e)
+            DirectPaidResult.Failure(ApiErrorMapper.message(e, ApiAction.CONFIRM_PAYMENT))
+        }
+
+    /** POST /debts/direct/{debtor}/{creditor}/reminder (one reminder for all groups). Success only on HTTP 2xx. */
+    suspend fun sendDirectReminder(actions: DirectActions): ActionResult =
+        action(ApiAction.REMINDER, "direct reminder ${actions.debtorUid}->${actions.creditorUid}") {
+            apiService.sendDirectDebtReminder(actions.debtorUid, actions.creditorUid, null)
+        }
 
     /** Maps the server's breakdown as is: no amounts are calculated or adjusted here. */
     private fun toBreakdown(r: BreakdownResponse, owedToMe: Boolean): Breakdown {

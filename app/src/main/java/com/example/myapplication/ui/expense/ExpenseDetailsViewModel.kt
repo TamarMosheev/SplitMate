@@ -33,7 +33,9 @@ class ExpenseDetailsViewModel(
         }
         if (!silent) _state.value = ExpenseDetailsUiState.Loading
         viewModelScope.launch {
-            when (val r = repository.loadExpenseDetails(groupId, expenseId)) {
+            val r = repository.loadExpenseDetails(groupId, expenseId)
+            android.util.Log.i("DEBTS_DEBUG", "vm: received ${(r as? com.example.myapplication.utils.Resource.Success)?.data?.debts?.size} debts, error=${(r as? com.example.myapplication.utils.Resource.Success)?.data?.debtsError}") // TEMP
+            when (r) {
                 is Resource.Success -> _state.value = ExpenseDetailsUiState.Success(r.data)
                 is Resource.Error -> _state.value = ExpenseDetailsUiState.Error(r.message)
                 Resource.Loading -> Unit

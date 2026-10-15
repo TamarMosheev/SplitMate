@@ -21,6 +21,7 @@ import com.example.myapplication.ui.balance.DebtActionMode
 import com.example.myapplication.ui.balance.DebtDetailsContent
 import com.example.myapplication.ui.balance.DebtDetailsUiState
 import com.example.myapplication.ui.balance.DebtDetailsViewModel
+import com.example.myapplication.ui.balance.DirectPrimary
 import com.example.myapplication.ui.balance.formatMoney
 import kotlinx.coroutines.launch
 
@@ -28,9 +29,10 @@ class DebtDetailsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDebtDetailsBinding
     private val viewModel: DebtDetailsViewModel by viewModels()
-    private val breakdownAdapter = BreakdownAdapter { expenseId ->
-        val groupId = (viewModel.state.value as? DebtDetailsUiState.Success)?.content?.groupId
-        if (groupId != null) startActivity(ExpenseDetailsActivity.intent(this, groupId, expenseId))
+    private val breakdownAdapter = BreakdownAdapter { row ->
+        val groupId = row.groupId ?: (viewModel.state.value as? DebtDetailsUiState.Success)?.content?.groupId
+        val expenseId = row.expenseId
+        if (groupId != null && expenseId != null) startActivity(ExpenseDetailsActivity.intent(this, groupId, expenseId))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -53,12 +55,16 @@ class DebtDetailsActivity : AppCompatActivity() {
         binding.rvBreakdown.adapter = breakdownAdapter
         binding.btnRetry.setOnClickListener { viewModel.load() }
         binding.btnMarkPaid.setOnClickListener { confirmPrimary() }
-        binding.btnRemind.setOnClickListener { viewModel.sendReminder() }
+        binding.btnRemind.setOnClickListener {
+            if ((viewModel.state.value as? DebtDetailsUiState.Success)?.content?.direct != null) viewModel.sendDirectReminder()
+            else viewModel.sendReminder()
+        }
 
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect(::render) }
                 launch { viewModel.busy.collect { updateActions() } }
+                launch { viewModel.closeScreen.collect { finish() } }
                 launch {
                     viewModel.messages.collect {
                         Toast.makeText(this@DebtDetailsActivity, it, Toast.LENGTH_LONG).show()
@@ -72,6 +78,15 @@ class DebtDetailsActivity : AppCompatActivity() {
     private fun confirmPrimary() {
         val content = (viewModel.state.value as? DebtDetailsUiState.Success)?.content ?: return
         val amount = formatMoney(content.amount)
+        if (content.mode == DebtActionMode.DIRECT) {
+            when (content.direct?.primary) {
+                DirectPrimary.CLAIM -> chooseDirectScope(content, DirectPrimary.CLAIM)
+                DirectPrimary.CONFIRM -> chooseDirectScope(content, DirectPrimary.CONFIRM)
+                DirectPrimary.MARK_PAID -> confirmDirectPaid(content)
+                null -> Unit
+            }
+            return
+        }
         val (title, message, action) = when (content.mode) {
             DebtActionMode.DEBTOR_CAN_CLAIM ->
                 Triple("שלחתי תשלום", "לעדכן שהתשלום של $amount נשלח?", "כן, שלחתי")
@@ -85,6 +100,78 @@ class DebtDetailsActivity : AppCompatActivity() {
             .setTitle(title)
             .setMessage(message)
             .setPositiveButton(action) { _, _ -> viewModel.onPrimaryAction() }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    /** Direct debt: when the server says several groups are involved, ask which one (or all) before confirming. */
+    private fun confirmDirectPaid(content: DebtDetailsContent) {
+        val direct = content.direct ?: return
+        val payable = direct.groups.filter { it.canMarkPaid }
+        if (!direct.requiresGroupSelection || payable.size < 2) {
+            confirmDirectPaidScope(content.amount, groupId = null, allGroups = false, label = null)
+            return
+        }
+        val labels = arrayOf("כל הקבוצות · ${formatMoney(content.amount)}") +
+            payable.map { "${it.name} · ${formatMoney(it.amount)}" }
+        AlertDialog.Builder(this)
+            .setTitle("איזה חוב לסמן כשולם?")
+            .setItems(labels) { _, which ->
+                if (which == 0) confirmDirectPaidScope(content.amount, null, true, "כל הקבוצות")
+                else payable[which - 1].let { confirmDirectPaidScope(it.amount, it.groupId, false, it.name) }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    /**
+     * "שילמתי" / "אשר קבלת תשלום" on a direct debt. Only the groups the server flagged are offered; one group is sent
+     * by its id, several give a choice (and "all" only when it really covers every group of the debt for a claim).
+     */
+    private fun chooseDirectScope(content: DebtDetailsContent, kind: DirectPrimary) {
+        val direct = content.direct ?: return
+        val claim = kind == DirectPrimary.CLAIM
+        val candidates = direct.groups.filter { if (claim) it.canClaimPaid else it.canConfirmClaim }
+        if (candidates.isEmpty()) return
+        val allowAll = candidates.size > 1 && (!claim || candidates.size == direct.groups.size)
+        val allAmount = candidates.fold(java.math.BigDecimal.ZERO) { a, g -> a + g.amount }
+        if (candidates.size == 1) {
+            val g = candidates.first()
+            confirmDirectClaimScope(kind, g.amount, g.groupId, false, null)
+            return
+        }
+        if (!allowAll && !claim) return
+        val labels = (if (allowAll) listOf("כל הקבוצות · ${formatMoney(allAmount)}") else emptyList()) +
+            candidates.map { "${it.name} · ${formatMoney(it.amount)}" }
+        AlertDialog.Builder(this)
+            .setTitle(if (claim) "על איזה חוב שילמת?" else "איזה תשלום לאשר?")
+            .setItems(labels.toTypedArray()) { _, which ->
+                val index = if (allowAll) which - 1 else which
+                if (index < 0) confirmDirectClaimScope(kind, allAmount, null, true, "כל הקבוצות")
+                else candidates[index].let { confirmDirectClaimScope(kind, it.amount, it.groupId, false, it.name) }
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    private fun confirmDirectClaimScope(kind: DirectPrimary, amount: java.math.BigDecimal, groupId: String?, allGroups: Boolean, label: String?) {
+        val claim = kind == DirectPrimary.CLAIM
+        val money = formatMoney(amount) + label?.let { " ($it)" }.orEmpty()
+        AlertDialog.Builder(this)
+            .setTitle(if (claim) "שילמתי" else "אישור קבלת תשלום")
+            .setMessage(if (claim) "לעדכן שהתשלום של $money נשלח לאישור?" else "לאשר שקיבלת תשלום של $money?")
+            .setPositiveButton(if (claim) "כן, שילמתי" else "אשר") { _, _ ->
+                if (claim) viewModel.claimDirectPaid(groupId, allGroups, amount) else viewModel.confirmDirectClaim(groupId, allGroups)
+            }
+            .setNegativeButton("ביטול", null)
+            .show()
+    }
+
+    private fun confirmDirectPaidScope(amount: java.math.BigDecimal, groupId: String?, allGroups: Boolean, label: String?) {
+        AlertDialog.Builder(this)
+            .setTitle("סימון כשולם")
+            .setMessage("לסמן את החוב על סך ${formatMoney(amount)}${label?.let { " ($it)" }.orEmpty()} כשולם?")
+            .setPositiveButton("סמן כשולם") { _, _ -> viewModel.markDirectPaid(groupId, allGroups, amount) }
             .setNegativeButton("ביטול", null)
             .show()
     }
@@ -157,6 +244,32 @@ class DebtDetailsActivity : AppCompatActivity() {
         val name = c.otherName ?: "משתמש"
         val idle = !viewModel.busy.value
         binding.actionsGroup.visibility = View.VISIBLE
+
+        if (c.mode == DebtActionMode.DIRECT) {
+            // Direct debt: visibility is exactly the server's canMarkPaid / canSendReminder.
+            val d = c.direct
+            val primary = d?.primary
+            val claimed = d?.claimedAmount?.let { " (${formatMoney(it)})" }.orEmpty()
+            val notice: String? = when {
+                d == null -> null
+                d.claimPending && d.canConfirmClaim -> "$name עדכן/ה שהתשלום נשלח$claimed"
+                d.claimPending -> "התשלום ממתין לאישור$claimed"
+                else -> null
+            }
+            binding.tvActionNotice.text = notice
+            binding.tvActionNotice.visibility = if (notice == null) View.GONE else View.VISIBLE
+            binding.btnMarkPaid.text = when (primary) {
+                DirectPrimary.CLAIM -> "שילמתי"
+                DirectPrimary.CONFIRM -> "אשר קבלת תשלום"
+                else -> "סמן כשולם"
+            }
+            binding.btnMarkPaid.visibility = if (primary != null) View.VISIBLE else View.GONE
+            binding.btnMarkPaid.isEnabled = idle
+            binding.btnRemind.visibility = if (d?.canSendReminder == true) View.VISIBLE else View.GONE
+            binding.btnRemind.isEnabled = idle
+            if (primary == null && d?.canSendReminder != true && notice == null) binding.actionsGroup.visibility = View.GONE
+            return
+        }
 
         val notice: String? = when (c.mode) {
             DebtActionMode.CREDITOR_CLAIM_PENDING -> "$name עדכן/ה שהתשלום נשלח"

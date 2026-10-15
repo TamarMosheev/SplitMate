@@ -2,7 +2,6 @@ package com.example.myapplication
 
 import android.os.Bundle
 import android.view.View
-import android.widget.Toast
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -15,7 +14,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.myapplication.databinding.ActivityDebtListBinding
 import com.example.myapplication.ui.balance.BalanceNavigation
-import com.example.myapplication.ui.balance.DebtAdapter
+import com.example.myapplication.ui.balance.DirectDebtAdapter
 import com.example.myapplication.ui.balance.DebtListContent
 import com.example.myapplication.ui.balance.DebtListUiState
 import com.example.myapplication.ui.balance.DebtListViewModel
@@ -27,10 +26,7 @@ class DebtListActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityDebtListBinding
     private val viewModel: DebtListViewModel by viewModels()
-    private val adapter = DebtAdapter(
-        onDebtClick = { debt -> BalanceNavigation.openDebtDetails(this, debt.groupId, debt.settlementId) },
-        onClaimClick = { debt -> viewModel.claimPayment(debt) }
-    )
+    private val adapter = DirectDebtAdapter { d -> BalanceNavigation.openDirectDebtDetails(this, d.otherUid, d.owedToMe) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -56,14 +52,11 @@ class DebtListActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.state.collect(::render) }
-                launch {
-                    viewModel.messages.collect { Toast.makeText(this@DebtListActivity, it, Toast.LENGTH_LONG).show() }
-                }
             }
         }
     }
 
-    /** Back from Debt Details: the debt may have been paid or confirmed, so reload from the server. */
+    /** Back from another screen: reload from the server. */
     override fun onRestart() {
         super.onRestart()
         viewModel.load(silent = true)
@@ -86,6 +79,7 @@ class DebtListActivity : AppCompatActivity() {
             ContextCompat.getColor(this, if (c.owedToMe) R.color.home_positive else R.color.home_negative)
         )
         adapter.submitList(c.debts)
+        android.util.Log.i("DIRECT_DEBTS", "ui: owedToMe=${c.owedToMe} displayedRows=${c.debts.size}") // TEMP
         binding.tvEmpty.text = if (c.owedToMe) "אף אחד לא חייב לך כרגע" else "אין לך חובות פתוחים"
         binding.tvEmpty.visibility = if (c.debts.isEmpty()) View.VISIBLE else View.GONE
     }

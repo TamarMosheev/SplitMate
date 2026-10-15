@@ -270,6 +270,57 @@
                 android:textSize="12sp"
                 android:visibility="gone" />
 
+            <!-- Who owes whom for THIS expense only (GET .../expenses/{id}/breakdown) -->
+            <TextView
+                style="@style/CreateGroupSectionTitle"
+                android:layout_marginTop="22dp"
+                android:text="מי חייב למי" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:outlineSpotShadowColor="@color/home_shadow"
+                app:cardBackgroundColor="@color/white"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="4dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp">
+
+                    <LinearLayout
+                        android:id="@+id/debtsList"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="vertical" />
+
+                    <TextView
+                        android:id="@+id/tvDebtsEmpty"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingVertical="16dp"
+                        android:text="אין חובות בהוצאה הזו"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/home_muted"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+
+                    <TextView
+                        android:id="@+id/tvDebtsError"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:paddingVertical="16dp"
+                        android:textAlignment="viewStart"
+                        android:textColor="@color/home_negative"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Edit / delete: intentionally absent. The backend has no edit or delete expense endpoint. -->
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>

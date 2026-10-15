@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.example.myapplication.databinding.ActivityExpenseDetailsBinding
+import com.example.myapplication.databinding.ItemExpenseDebtBinding
 import com.example.myapplication.databinding.ItemGroupMemberBinding
 import com.example.myapplication.ui.balance.formatMoney
 import com.example.myapplication.ui.expense.ExpenseDetailsContent
@@ -122,6 +123,28 @@ class ExpenseDetailsActivity : AppCompatActivity() {
         }
         binding.tvSharesNote.text = c.sharesNote
         binding.tvSharesNote.visibility = if (c.sharesNote == null) View.GONE else View.VISIBLE
+
+        renderDebts(c)
+    }
+
+    /** "מי חייב למי": one row per real obligation of THIS expense, exactly as the server returned it. */
+    private fun renderDebts(c: ExpenseDetailsContent) {
+        android.util.Log.i("DEBTS_DEBUG", "ui: renderDebts rows=${c.debts.size} err=${c.debtsError}") // TEMP
+        binding.debtsList.removeAllViews()
+        c.debts.forEachIndexed { i, d ->
+            val row = ItemExpenseDebtBinding.inflate(LayoutInflater.from(this), binding.debtsList, false)
+            row.ivDebtorAvatar.setAvatar(d.debtorAvatar)
+            row.tvDebtorName.text = (d.debtorName ?: "משתמש").let { if (d.debtorIsMe) "$it (אני)" else it }
+            row.ivCreditorAvatar.setAvatar(d.creditorAvatar)
+            row.tvCreditorName.text = (d.creditorName ?: "משתמש").let { if (d.creditorIsMe) "$it (אני)" else it }
+            row.tvDebtAmount.text = formatMoney(d.amount)
+            row.debtDivider.visibility = if (i == c.debts.lastIndex) View.GONE else View.VISIBLE
+            binding.debtsList.addView(row.root)
+        }
+        binding.tvDebtsError.text = c.debtsError
+        binding.tvDebtsError.visibility = if (c.debtsError != null) View.VISIBLE else View.GONE
+        // Honest empty state only when the request succeeded and returned nothing.
+        binding.tvDebtsEmpty.visibility = if (c.debtsError == null && c.debts.isEmpty()) View.VISIBLE else View.GONE
     }
 
     private fun renderResult(result: ExpenseResultUi?) {

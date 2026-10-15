@@ -57,13 +57,15 @@ object ApiErrorMapper {
                 else if (action == ApiAction.LEAVE_GROUP) "לא ניתן לעזוב את הקבוצה כל עוד את יוצרת הקבוצה"
                 else if (action == ApiAction.REMOVE_MEMBER) "חברי הקבוצה השתנו בינתיים. הנתונים רועננו"
                 else when {
-                    "already pending" in detail -> "כבר עדכנת שהתשלום נשלח. ממתינים לאישור."
+                    "already pending" in detail -> "כבר נשלחה בקשת תשלום והיא ממתינה לאישור."
                     "no pending payment claim" in detail -> "אין דיווח תשלום שממתין לאישור. הנתונים רועננו"
                     "paid without a payment claim" in detail -> "החוב סומן כשולם ללא דיווח תשלום"
                     "since the payment was claimed" in detail -> "סכום החוב השתנה מאז דווח התשלום. הנתונים רועננו"
                     "creditor is no longer a member" in detail -> "מקבל התשלום כבר לא חבר בקבוצה"
                     "already been paid" in detail -> "החוב כבר שולם"
-                    "sent recently" in detail -> "כבר נשלחה תזכורת לחוב הזה לאחרונה"
+                    "sent recently" in detail -> "כבר נשלחה תזכורת לאחרונה. נסי שוב מאוחר יותר."
+                    "debt changed from" in detail -> "סכום החוב השתנה. הנתונים רועננו"
+                    "just paid by another" in detail -> "החוב כבר שולם. הנתונים רועננו"
                     "amount of this settlement changed" in detail -> "סכום החוב השתנה. הנתונים רועננו"
                     else -> "הפעולה לא יכולה להתבצע כרגע. הנתונים רועננו"
                 }

@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from routers import expenses_router, groups_router, notifications_router, password_reset_router, users_router
+from routers import debts_router, expenses_router, groups_router, notifications_router, password_reset_router, users_router
 
 app = FastAPI(title="SplitMate Backend")
 
@@ -15,6 +15,7 @@ def read_root():
 
 app.include_router(groups_router.router)
 app.include_router(expenses_router.router)
+app.include_router(debts_router.router)
 app.include_router(notifications_router.router)
 app.include_router(password_reset_router.router)
 app.include_router(users_router.router)

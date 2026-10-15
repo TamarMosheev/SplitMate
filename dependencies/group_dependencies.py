@@ -2,6 +2,7 @@ from fastapi import Depends, HTTPException
 
 from auth.auth_service import get_current_uid
 from firebase.firebase_service import firebase_service
+from repositories.direct_claim_repository import DirectClaimRepository
 from repositories.expense_repository import ExpenseRepository
 from repositories.group_repository import GroupRepository
 from repositories.notification_repository import NotificationRepository
@@ -9,6 +10,8 @@ from repositories.payment_repository import PaymentRepository
 from repositories.settlement_repository import SettlementRepository
 from repositories.user_repository import UserRepository
 from services.balance_service import BalanceService
+from services.direct_debt_action_service import DirectDebtActionService
+from services.direct_debt_service import DirectDebtService
 from services.expense_service import ExpenseService
 from services.group_service import GroupService
 from services.notification_service import NotificationService
@@ -28,8 +31,14 @@ expense_service = ExpenseService(expense_repository)
 notification_service = NotificationService(notification_repository, user_repository, settlement_service)
 group_service = GroupService(group_repository, expense_repository, settlement_repository, notification_repository, user_repository)
 user_service = UserService(user_repository)
+direct_claim_repository = DirectClaimRepository(firebase_service)
+direct_debt_service = DirectDebtService(group_repository, balance_service, user_repository, direct_claim_repository)
 payment_repository = PaymentRepository(firebase_service)
 payment_service = PaymentService(settlement_service, settlement_repository, payment_repository, user_repository)
+direct_debt_action_service = DirectDebtActionService(
+    group_repository, balance_service, settlement_repository, payment_repository, notification_repository, user_repository,
+    direct_claim_repository
+)
 
 
 def get_member_group(group_id: str, uid: str = Depends(get_current_uid)) -> dict:

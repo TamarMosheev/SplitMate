@@ -76,6 +76,88 @@ class SettlementService:
                 j += 1
         return transfers
 
+    @staticmethod
+    def _max_direct_flow(
+        owed: Dict[str, int], due: Dict[str, int], direct: Dict[Tuple[str, str], int]
+    ) -> Dict[Tuple[str, str], int]:
+        """The most money that can move along real direct obligations (Edmonds-Karp, integer cents).
+
+        Source -> each net debtor (capacity: what they owe in total), debtor -> creditor (capacity: what
+        they directly owe that creditor), net creditor -> sink (capacity: what they are owed in total).
+        The result is a maximum flow, so no direct obligation is dropped just because of the order in
+        which people were processed. Ties are broken by user id, so it is deterministic.
+        """
+        source, sink = ("s", ""), ("t", "")
+        capacity: Dict[tuple, int] = {}
+        neighbours: Dict[tuple, set] = {}
+
+        def edge(u: tuple, v: tuple, cents: int) -> None:
+            capacity[(u, v)] = capacity.get((u, v), 0) + cents
+            capacity.setdefault((v, u), 0)
+            neighbours.setdefault(u, set()).add(v)
+            neighbours.setdefault(v, set()).add(u)
+
+        for debtor, cents in owed.items():
+            edge(source, ("d", debtor), cents)
+        for creditor, cents in due.items():
+            edge(("c", creditor), sink, cents)
+        for (debtor, creditor), cents in direct.items():
+            if debtor in owed and creditor in due and cents > 0:
+                edge(("d", debtor), ("c", creditor), cents)
+
+        while True:
+            parent = {source: None}
+            queue = [source]
+            for node in queue:
+                for nxt in sorted(neighbours.get(node, ())):
+                    if nxt not in parent and capacity[(node, nxt)] > 0:
+                        parent[nxt] = node
+                        queue.append(nxt)
+            if sink not in parent:
+                break
+            path, node = [], sink
+            while parent[node] is not None:
+                path.append((parent[node], node))
+                node = parent[node]
+            push = min(capacity[e] for e in path)
+            for u, v in path:
+                capacity[(u, v)] -= push
+                capacity[(v, u)] += push
+
+        return {
+            (debtor, creditor): capacity[(("c", creditor), ("d", debtor))]
+            for (debtor, creditor) in direct
+            if debtor in owed and creditor in due and capacity.get((("c", creditor), ("d", debtor)), 0) > 0
+        }
+
+    @classmethod
+    def settle_preserving_direct(
+        cls, balances_cents: Dict[str, int], pair_cents: Dict[Tuple[str, str], int]
+    ) -> List[Tuple[str, str, int]]:
+        """Transfers that keep real debtor -> creditor relationships wherever the balances allow it.
+
+        1. `pair_cents` are the direct net obligations between pairs of people (from the real expenses
+           and payments). Every transfer goes from someone who is net owing to someone who is net owed,
+           so the transfers can never form a cycle and each person's outgoing (debtor) / incoming
+           (creditor) total equals their balance exactly.
+        2. As much as possible of each direct obligation is kept (a maximum flow over those pairs).
+        3. What is left (debts that exist only through multi-party netting, e.g. A owes B, B owes C, where
+           B is both a creditor and a debtor) is settled with the greedy matching of `settle_cents`.
+        Returns (debtor, creditor, cents), one entry per pair, sorted by (debtor, creditor).
+        """
+        owed = {u: -c for u, c in balances_cents.items() if c < 0}
+        due = {u: c for u, c in balances_cents.items() if c > 0}
+
+        merged = cls._max_direct_flow(owed, due, pair_cents)
+        residual = dict(balances_cents)
+        for (debtor, creditor), cents in merged.items():
+            residual[debtor] += cents
+            residual[creditor] -= cents
+        for debtor, creditor, cents in cls.settle_cents({u: c for u, c in residual.items() if c != 0}):
+            merged[(debtor, creditor)] = merged.get((debtor, creditor), 0) + cents
+
+        return [(d, c, cents) for (d, c), cents in sorted(merged.items())]
+
     def settle_debts(self, balances: Dict[str, float]) -> List[dict]:
         """balances (amounts) -> transfers [{"from", "to", "amount"}], computed in integer cents."""
         cents = {user_id: to_cents(balance) for user_id, balance in balances.items()}
@@ -83,6 +165,15 @@ class SettlementService:
             {"from": debtor, "to": creditor, "amount": cents_to_amount(amount)}
             for debtor, creditor, amount in self.settle_cents(cents)
         ]
+
+    def current_transfers(self, group_id: str) -> List[Tuple[str, str, int]]:
+        """The open debts right now, from the real expenses and the payments already marked paid."""
+        pairs = self._balances.calculate_pair_cents(group_id)
+        balances: Dict[str, int] = {}  # identical to calculate_balance_cents (tests assert it), from one read
+        for (debtor, creditor), cents in pairs.items():
+            balances[debtor] = balances.get(debtor, 0) - cents
+            balances[creditor] = balances.get(creditor, 0) + cents
+        return self.settle_preserving_direct(balances, pairs)
 
     def reconcile(self, group_id: str) -> None:
         """Bring the stored settlements in line with the group's current debts.
@@ -101,7 +192,7 @@ class SettlementService:
             if s["status"] == "paid":
                 paid_count[(s["from"], s["to"])] = paid_count.get((s["from"], s["to"]), 0) + 1
 
-        for debtor, creditor, cents in self.settle_cents(self._balances.calculate_balance_cents(group_id)):
+        for debtor, creditor, cents in self.current_transfers(group_id):
             pair = (debtor, creditor)
             current = open_by_pair.pop(pair, None)
             if current is not None:

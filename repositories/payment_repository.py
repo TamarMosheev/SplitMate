@@ -1,6 +1,7 @@
 from typing import Optional
 
 from firebase_admin import firestore
+from google.api_core.exceptions import AlreadyExists
 from google.cloud.firestore import transactional
 
 from firebase.firebase_service import FirebaseService
@@ -42,6 +43,34 @@ class PaymentRepository:
             and claimed is not None
             and to_cents(claimed) == to_cents(settlement["amount"])
         )
+
+    def record_direct_payment(
+        self, group_id: str, payment_id: str, payment: dict, notification: dict, claim_id: Optional[str] = None
+    ) -> str:
+        """Persist a paid direct debt AND notify the debtor in one atomic batch.
+
+        The payment is stored as a 'paid' record in the group's settlements collection under a fixed id, so
+        the existing balance / direct-debt maths subtract it and no expense is touched. `create` fails if the
+        id exists, so two concurrent requests cannot both record the same payment. Returns "ok" or "exists".
+        """
+        db = self._firebase.get_db()
+        batch = db.batch()
+        batch.create(self._settlement_ref(group_id, payment_id), {
+            **payment,
+            "createdAt": firestore.SERVER_TIMESTAMP,
+            "paidAt": firestore.SERVER_TIMESTAMP,
+        })
+        notification_ref = db.collection("users").document(notification["recipientUid"]).collection("notifications").document()
+        batch.create(notification_ref, {**notification, "createdAt": firestore.SERVER_TIMESTAMP})
+        if claim_id is not None:  # the debtor's pending "I paid" claim is confirmed by this very payment
+            claim_ref = db.collection("groups").document(group_id).collection("directPaymentClaims").document(claim_id)
+            batch.update(claim_ref, {"status": "confirmed", "resolvedAt": firestore.SERVER_TIMESTAMP,
+                                     "resolvedBy": payment["markedBy"], "paymentId": payment_id})
+        try:
+            batch.commit()
+        except AlreadyExists:
+            return "exists"
+        return "ok"
 
     def claim(self, group_id: str, settlement_id: str, uid: str, notification: dict) -> str:
         """The debtor reports having paid. The settlement stays 'open'; nothing about balances changes."""

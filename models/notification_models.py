@@ -13,8 +13,9 @@ class NotificationOut(BaseModel):
     type: Literal["debt_reminder", "payment_claim", "payment_confirmed", "payment_claim_rejected"]
     recipientUid: str
     senderUid: str
-    groupId: str
-    settlementId: str
+    groupId: Optional[str] = None  # null for a direct-debt reminder that covers several groups
+    settlementId: Optional[str] = None  # null for a direct-debt reminder (a direct debt has no settlement)
+    claimId: Optional[str] = None  # direct-debt claim notifications: the claim they are about
     amount: float
     message: str
     isRead: bool

@@ -43,3 +43,20 @@ class ExpenseCreate(BaseModel):
             if sum(to_cents(v) for v in self.exactAmounts.values()) != to_cents(self.amount):
                 raise ValueError("sum of exactAmounts must equal amount")
         return self
+
+
+class ExpenseDebtItem(BaseModel):
+    userId: str
+    share: float  # this person's share of THIS expense
+    owesTo: str  # the payer
+    amountOwed: float  # what this expense alone makes them owe the payer (== share)
+
+
+class ExpenseBreakdown(BaseModel):
+    expenseId: str
+    description: str
+    paidBy: str
+    amount: float
+    splitType: Literal["equal", "exact"]
+    payerShare: float  # the payer's own share (0 if the payer is not a participant)
+    items: List[ExpenseDebtItem]

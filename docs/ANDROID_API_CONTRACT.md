@@ -125,6 +125,7 @@ Bell badge: `GET /notifications/unread-count`. Notification list: `GET /notifica
 - **Auth:** required; caller must be a group member.
 - **Request body:** none.
 - **Side effect:** reading keeps the stored settlements in sync with the current expenses (it may create, update or remove *open* settlements). It never changes paid ones.
+- **Which transfers are produced:** direct relationships are preserved. The server first works out who really owes whom from the expenses (each participant owes the payer their share; opposite debts between the same two people are netted; payments already marked paid are subtracted), then keeps as much of that as the balances allow: a net debtor pays the net creditors they directly owe. Only debt that exists purely through multi-party netting (A owes B and B owes C, so A pays C) is settled with a second, greedy step. So someone who paid for several people normally has several `transfers` with `to` = them. Everything stays exact in cents; each net debtor's outgoing transfers add up to what they owe, each net creditor's incoming ones to what they are owed, and nobody both pays and receives. The response shape and the settlement ids (`<debtor>_<creditor>_<n>`) are unchanged; when expenses change, open settlements are updated, created or removed as before (a pair that no longer has a debt disappears, so always refetch before acting on an id).
 - **Response `200`:**
 
 ```json
@@ -819,6 +820,138 @@ Status codes:
 | `401` / `403` / `404` | see §1 | – |
 | `422` | Body failed validation (amount ≤ 0 or more than 2 decimals, blank text, empty `participantIds`, bad `splitType`, missing `exactAmounts`, `exactAmounts` not adding up to `amount`) | validation error list |
 
+### 3.9a Expense breakdown (Expense Details: who owes whom for ONE expense)
+
+`GET /groups/{group_id}/expenses/{expense_id}/breakdown`
+
+- **Auth:** required; the caller must be a member of the group (`403` otherwise).
+- **What it is:** what this one expense alone makes each participant owe the payer, before any group-wide netting. It is **not** the settlement screen. It ignores every other expense, every paid settlement and all routing: if the payer owes a participant money because of some other expense, this expense still shows that participant's share.
+- **Why Android must use it:** the shares are the server's own cent allocation (the same function that produces `GET .../balances` and the settlements), so they never differ by a cent from the balances. For an equal split of an amount that does not divide evenly (e.g. 350 / 3 = 116.67, 116.67, 116.66) the server decides who gets the extra cent; **do not recompute equal splits on the device.** `GET .../expenses` keeps returning only the stored fields.
+- **Split types:** `equal` (server's deterministic cent allocation) and `exact` (the stored `exactAmounts`; if they ever did not add up to `amount`, the payer carries the difference, exactly as the balances do).
+- **History:** group membership is not consulted, so someone who left or was removed still appears in the breakdown of every old expense they took part in. Expenses are never rewritten.
+- **Items:** one per person other than the payer whose share is greater than 0, in the expense's `participantIds` order. The payer is never listed as owing themselves; their own share is `payerShare` (`0` if the payer is not a participant). `payerShare` + the sum of all `share` values always equals `amount` exactly.
+
+Response `200` (real data, football group, expense "שיכירות מגרש", paid by אורטל for five people):
+
+```json
+{
+  "expenseId": "aoUnYwey40SvJwUvrQWx",
+  "description": "שיכירות מגרש",
+  "paidBy": "QhRt9BwjWRMDv5tVU5UFb8W5FT63",
+  "amount": 500.0,
+  "splitType": "equal",
+  "payerShare": 100.0,
+  "items": [
+    { "userId": "8S2Qyuq2tKPfrmoJzJVP8H2eLWf2", "share": 100.0, "owesTo": "QhRt9BwjWRMDv5tVU5UFb8W5FT63", "amountOwed": 100.0 },
+    { "userId": "iO8Yi3G9xRVpUUAzPNhEfhxXcX92", "share": 100.0, "owesTo": "QhRt9BwjWRMDv5tVU5UFb8W5FT63", "amountOwed": 100.0 },
+    { "userId": "70MNLii6tlOUMDLfA5zyw0Add7y2", "share": 100.0, "owesTo": "QhRt9BwjWRMDv5tVU5UFb8W5FT63", "amountOwed": 100.0 },
+    { "userId": "ESVRB3cBv4UdYP3jrxt5fNb8DVD3", "share": 100.0, "owesTo": "QhRt9BwjWRMDv5tVU5UFb8W5FT63", "amountOwed": 100.0 }
+  ]
+}
+```
+
+| Field | Type | Meaning |
+|---|---|---|
+| `expenseId`, `description`, `paidBy`, `amount`, `splitType` | as stored | The expense itself. |
+| `payerShare` | number | The payer's own share of the expense. |
+| `items[].userId` | uid | A person who owes the payer for this expense. Resolve the name from the members/users data (it may be someone who is no longer a member). |
+| `items[].share` | number | Their share of this expense. |
+| `items[].owesTo` | uid | Always the payer. |
+| `items[].amountOwed` | number | What this expense makes them owe the payer. Always equal to `share` (per-expense only). |
+
+| Status | When | `detail` |
+|---|---|---|
+| `200` | Breakdown returned | – |
+| `401` | Missing/invalid token | see §1 |
+| `403` | The caller is not a member of the group | `You are not a member of this group` |
+| `404` | No such group, or no such expense in that group | `Group '<id>' not found` / `Expense '<id>' not found` |
+
+### 3.9b Direct debts ("חייבים לך" / "את חייבת")
+
+`GET /debts/receivable` – everyone who **directly owes the signed-in user** money because the user paid for them ("חייבים לך").
+`GET /debts/payable` – the mirror: everyone the signed-in user **directly owes** because they paid for the user ("את חייבת").
+
+- **Auth:** required. No parameters: the person is always the authenticated user. Covers every group the user is currently a member of.
+- **This is not the settlement.** It does not use `GET .../settlement`, its transfers, its netting or its ids. It answers "who directly owes me from expenses I paid for", not "which optimized transfers are open".
+- **How it is computed, per group:** for every expense, each participant other than the payer owes the payer their share (the server's exact cent allocation, the same one the balances and `GET .../expenses/{id}/breakdown` use). Per pair of people the obligations are summed across expenses, and **only opposite debts between the same two people are netted** (B owes A 100 and A owes B 30 gives B owes A 70). Nothing is ever netted through a third person. A person who owes you nothing after that netting is not listed.
+- **Group balance does not matter.** Someone is listed even if their overall group balance is positive.
+- **Payments:** a settlement marked paid between exactly these two people, in the direction that reduces the debt, is subtracted (never below 0). A paid settlement that does not match a direct debt (it went the other way, or was larger than the direct debt because it settled a debt that was netted through other people) is **ignored here**: payments are recorded per settlement, not per expense, so it cannot be attributed to this pair's expenses safely, and the server does not invent a debt in the other direction. Open settlements and pending payment claims change nothing here.
+- **History:** membership is not consulted: a person who left or was removed still appears while the debt is outstanding. Groups the user has left are not included.
+- **Order:** by `amount` descending; each person's `groups` likewise.
+- **Actions:** these rows are not settlements, so they carry no `settlementId`. Reminders, payment claims, confirming and marking paid still work on the group's settlement transfers (`GET .../settlement`), which are unchanged.
+
+Response `200` (real data, football group, signed in as אורטל):
+
+```json
+{
+  "total": 300.0,
+  "debts": [
+    {
+      "userId": "70MNLii6tlOUMDLfA5zyw0Add7y2",
+      "displayName": "תמר מושייב",
+      "amount": 100.0,
+      "groups": [ { "groupId": "KK1AVuuXLv65wh9RFBwN", "groupName": "משחק כדורגל", "amount": 100.0 } ]
+    },
+    { "userId": "8S2Qyuq2tKPfrmoJzJVP8H2eLWf2", "displayName": "אור הלוי", "amount": 100.0,
+      "groups": [ { "groupId": "KK1AVuuXLv65wh9RFBwN", "groupName": "משחק כדורגל", "amount": 100.0 } ] },
+    { "userId": "ESVRB3cBv4UdYP3jrxt5fNb8DVD3", "displayName": "איילה פרץ", "amount": 100.0,
+      "groups": [ { "groupId": "KK1AVuuXLv65wh9RFBwN", "groupName": "משחק כדורגל", "amount": 100.0 } ] }
+  ]
+}
+```
+
+(אלעזר is not listed: אורטל's shares in the two expenses אלעזר paid make אורטל owe him 214, more than the 100 he owes her for the 500 expense, so after netting that pair אורטל owes אלעזר 114, which appears in her `GET /debts/payable`.)
+
+| Field | Type | Meaning |
+|---|---|---|
+| `total` | number | Sum of all `amount`s (exact cents). `0` and `debts: []` when there is nothing. |
+| `debts[].userId` | uid | The other person: the debtor (`/receivable`) or the person owed (`/payable`). |
+| `debts[].displayName` | string, optional | Their name; omitted if they have no profile. |
+| `debts[].amount` | number | What they owe you (or you owe them), over all groups. |
+| `debts[].groups[]` | array | The same amount split by group: `groupId`, `groupName`, `amount`. Sums to `amount`. |
+
+| Status | When |
+|---|---|
+| `200` | Always for a signed-in user (an empty list when nothing is owed) |
+| `401` | Missing/invalid token (see §1) |
+
+### 3.9b Direct-debt actions ("סמן כשולם" / "שלח תזכורת")
+
+Direct debts have **no `settlementId`**. Actions identify the pair: `debtor_uid` (who owes) and `creditor_uid` (who is owed). **Only the creditor may act**: `creditor_uid` must be the signed-in user.
+
+**Which buttons to show** - read these from `GET /debts/receivable/{other_uid}` / `GET /debts/payable/{other_uid}` (top level, and per group in `groups[]`):
+
+| Field | Meaning |
+|---|---|
+| `canMarkPaid` | `true` only when the signed-in user is the creditor (`owedToMe`). |
+| `canSendReminder` | `true` only for the creditor while the debtor is still a member of at least one group with this debt. Per group: that group only. |
+| `requiresGroupSelection` | `true` when the debt spans several groups: "סמן כשולם" must send `groupId` (one group) or `allGroups=true`. |
+| `debtorUid`, `creditorUid` | Use these in the action URLs. |
+
+`PATCH /debts/direct/{debtor_uid}/{creditor_uid}/paid?groupId=<optional>&allGroups=<optional bool>` - body (optional): `{"expectedAmount": 100.0}` (the amount the screen showed).
+- The amount is recomputed by the server from the real expenses; it is stored as a paid record per group (expenses are never changed). The debtor gets a `payment_confirmed` notification.
+- Several groups and neither `groupId` nor `allGroups=true` -> `400` (no silent guess).
+- Response `200`: `{debtorUid, creditorUid, paidAmount, payments: [{groupId, groupName, paymentId, amount}], remainingAmount}`. Refresh `/debts/receivable` afterwards.
+- `403` caller is not the creditor, `404` no such outstanding debt or unknown group, `409` already paid (repeat) or `expectedAmount` is stale.
+
+`POST /debts/direct/{debtor_uid}/{creditor_uid}/reminder?groupId=<optional>` - no body. Without `groupId`, one reminder covers all groups where the debtor still owes.
+- Response `201`: the notification (`type: "debt_reminder"`, `recipientUid` = debtor). **`groupId` and `settlementId` can be `null`** (`settlementId` always; `groupId` when the reminder covers several groups) - make them nullable in the notification model.
+- Cooldown 24h per (sender, scope). `403` not the creditor, `404` no debt, `400` the debtor left every group with this debt, `409` already paid or reminded within 24h.
+
+#### Debtor payment claim ("שילמתי")
+
+`POST /debts/direct/{debtor_uid}/{creditor_uid}/payment-claim?groupId=&allGroups=` - only the debtor (`debtor_uid` = signed-in user). Optional body `{"expectedAmount": 100.0}`. Same scope rule as `/paid` (several groups -> `groupId` or `allGroups=true`, else `400`).
+- `201`: `{debtorUid, creditorUid, claimedAmount, claims: [{claimId, groupId, groupName, amount, status: "pending"}]}`. The debt does **not** change. The creditor gets a `payment_claim` notification (`claimId` set, `settlementId` null).
+- `403` not the debtor, `404` no such debt, `409` a claim is already pending (or stale `expectedAmount`), `400` creditor left the group.
+
+Creditor answers (creditor only, same scope params):
+- `PATCH /debts/direct/{debtor_uid}/{creditor_uid}/confirm-payment` -> `200` same shape as `/paid`. The claimed amount (capped at what is still owed) becomes a real payment; the debtor gets `payment_confirmed`. `/paid` also confirms a pending claim (it pays the full current debt).
+- `PATCH /debts/direct/{debtor_uid}/{creditor_uid}/reject-payment-claim` -> `200 {debtorUid, creditorUid, claimedAmount, claims[status: "rejected"]}`. Debt unchanged; the debtor gets `payment_claim_rejected` and may claim again.
+- Both: `403` not the creditor, `409` no pending claim.
+
+Claim state in the details response (top level; per group the same names plus `claimId`, `claimedAt`):
+`canClaimPaid` (debtor, some group has no pending claim), `claimPending`, `claimedAmount` (sum of pending), `canConfirmClaim`, `canRejectClaim` (creditor, a claim is pending).
+
 ### 3.10 Settlement breakdown ("ממה זה מורכב")
 
 `GET /groups/{group_id}/settlements/{settlement_id}/breakdown`
@@ -1039,7 +1172,7 @@ expense  "TEMP bd 5: after payment" relevantAmount   20.00      =>  amount 20.00
 ```
 
 - **When is a breakdown available?** The backend computes what the debtor owes the creditor *directly* (expenses the creditor paid that the debtor shares, minus expenses the debtor paid that the creditor shares, minus payments between them). The breakdown is returned only when that equals the settlement amount exactly. This always holds in two-person groups and when one member paid for everything.
-- **When it is not (`"netted"`):** in groups where several people pay for each other, the settlement algorithm nets debts across everyone (A owes B, B owes C, so A pays C), and a transfer can then be a *netted obligation* that no individual expense explains. The server never guesses: it returns `breakdownAvailable: false`, `breakdownType: "netted"`, `items: []`, and the `contributingExpenses` context. In the real group "גינה של הביניים אורים 6" both current settlements are like this.
+- **When it is not (`"netted"`):** in groups where several people pay for each other, debts can only be settled by netting across several people (A owes B, B owes C, so A pays C; the settlement keeps direct debtor -> creditor transfers wherever the balances allow, so this is the exception), and a transfer can then be a *netted obligation* that no individual expense explains. The server never guesses: it returns `breakdownAvailable: false`, `breakdownType: "netted"`, `items: []`, and the `contributingExpenses` context. In the real group "גינה של הביניים אורים 6" both current settlements are like this.
 - **Paid settlements:** the snapshot taken when the settlement was marked paid is returned (its `status` is `"paid"`): the exact rows, or for a netted debt its `contributingExpenses`. It stays the same even if expenses are changed or deleted later. If a paid settlement has no snapshot (marked paid before breakdowns existed) you get `breakdownType: "unavailable"`, both lists empty, and `reason: "No breakdown was recorded when this settlement was paid."`.
 - **Possible `reason` values:** `This settlement is a netted obligation across multiple participants and cannot be uniquely attributed to individual expenses.` · `No breakdown was recorded when this settlement was paid.` · `The breakdown recorded when this settlement was paid is inconsistent and is not shown.`
 
@@ -1342,6 +1475,14 @@ All four types use the same fields, the same list, the same unread count and the
 | `PATCH /users/me/avatar` | 200 | 401, 404, 422 |
 | `GET /groups/{group_id}/members` | 200 | 401, 403, 404 |
 | `GET /groups/{group_id}/expenses` | 200 | 401, 403, 404 |
+| `GET /groups/{group_id}/expenses/{expense_id}/breakdown` | 200 | 401, 403, 404 |
+| `GET /debts/receivable` | 200 | 401 |
+| `GET /debts/payable` | 200 | 401 |
+| `PATCH /debts/direct/{debtor_uid}/{creditor_uid}/paid` | 200 | 400, 401, 403, 404, 409 |
+| `POST /debts/direct/{debtor_uid}/{creditor_uid}/reminder` | 201 | 400, 401, 403, 404, 409 |
+| `POST /debts/direct/{debtor_uid}/{creditor_uid}/payment-claim` | 201 | 400, 401, 403, 404, 409 |
+| `PATCH /debts/direct/{debtor_uid}/{creditor_uid}/confirm-payment` | 200 | 400, 401, 403, 404, 409 |
+| `PATCH /debts/direct/{debtor_uid}/{creditor_uid}/reject-payment-claim` | 200 | 400, 401, 403, 404, 409 |
 | `POST /groups/{group_id}/expenses` | 200 | 400, 401, 403, 404, 422 |
 | `POST /auth/password-reset/request` and `/resend` | 200 | 400, 429, 500 |
 | `POST /auth/password-reset/verify` | 200 | 400, 429 |
